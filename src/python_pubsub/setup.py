@@ -25,6 +25,7 @@ setup(
     entry_points={
         'console_scripts': [
             'python_talker = python_pubsub.minimal_publisher:main',
+            'publisher_for_carter_robot = python_pubsub.publisher_for_carter_robot:main',
         ],
     },
 )

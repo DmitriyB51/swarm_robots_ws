@@ -1,0 +1,15 @@
+{
+    "python.analysis.extraPaths": [
+        "/home/dmitriyb51/isaacsim/python_packages",
+        "/home/dmitriyb51/isaacsim/exts/isaacsim.core.api",
+        "/home/dmitriyb51/isaacsim/exts/isaacsim.core.prims",
+        "/home/dmitriyb51/isaacsim/exts/isaacsim.core.utils",
+        "/home/dmitriyb51/isaacsim/exts/isaacsim.storage.native",
+        "/home/dmitriyb51/isaacsim/kit/kernel/py",
+        "/home/dmitriyb51/isaacsim/extscache/omni.kit.pip_archive-0.0.0+69cbf6ad.lx64.cp311/pip_prebundle"
+    ],
+    "python.analysis.diagnosticSeverityOverrides": {
+        "reportMissingImports": "none",
+        "reportMissingModuleSource": "none"
+    }
+}
