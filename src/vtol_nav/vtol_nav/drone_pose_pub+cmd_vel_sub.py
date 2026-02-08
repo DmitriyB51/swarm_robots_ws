@@ -19,7 +19,7 @@ from isaacsim.core.utils.extensions import enable_extension
 # ROS2
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseStamped, Twist
 
 
 # Enable extensions
@@ -82,32 +82,50 @@ drone.set_world_poses(positions=np.array([[0.0, 0, 0.0]]) / get_stage_units())
 # initialize the world
 my_world.reset()
 
-# Set up joint drives with stiffness and damping
+
 num_dofs = drone.num_dof
-print("DOF count:", num_dofs)
-print("Joint names:", drone.dof_names)
-
-# Target velocities for propellers
-target_velocities = np.array([10.0, -10.0, 10.0, -10.0])
 
 
+# Motor speeds — updated by cmd_vel callback
+target_velocities = np.array([0.0, 0.0, 0.0, 0.0])
 
 
+# cmd_vel callback: converts Twist message to 4 motor speeds
+def cmd_vel_callback(msg):
+    global target_velocities
+    thrust = msg.linear.z     
+    roll   = msg.angular.x    
+    pitch  = msg.angular.y    
+    yaw    = msg.angular.z    
 
-# Initialize ROS 2 and create publisher
+    # convert Twist to individual motor speeds
+    
+    m1 =  (thrust + pitch + roll + yaw)
+    m2 = -(thrust - pitch + roll - yaw)
+    m3 =  (thrust + pitch - roll - yaw)
+    m4 = -(thrust - pitch - roll + yaw)
+
+    target_velocities = np.array([m1, m2, m3, m4])
+
+
+# ros2 pub sub
 rclpy.init()
-ros_node = rclpy.create_node("drone_pose_publisher")
+ros_node = rclpy.create_node("drone_controller")
 pose_publisher = ros_node.create_publisher(PoseStamped, "/robot_pose", 10)
-print("ROS 2 publisher created on /robot_pose")
+cmd_vel_subscriber = ros_node.create_subscription(Twist, "/cmd_vel", cmd_vel_callback, 10)
+
+
+
+
 
 while simulation_app.is_running():
     drone.set_joint_velocity_targets(target_velocities)
     my_world.step(render=True)
 
-    # Get drone position and orientation from Isaac Sim
+    
     positions, orientations = drone.get_world_poses()
 
-    # Round values to 4 decimal places for cleaner output
+    # rounding for readability
     pos = np.round(positions[0], 4)
     ori = np.round(orientations[0], 4)
 
@@ -124,10 +142,10 @@ while simulation_app.is_running():
     pose_msg.pose.orientation.z = float(ori[3])
     pose_publisher.publish(pose_msg)
 
-    # Process ROS 2 callbacks (non-blocking)
+   
     rclpy.spin_once(ros_node, timeout_sec=0.0)
 
-# Cleanup
+
 ros_node.destroy_node()
 rclpy.shutdown()
 simulation_app.close()
