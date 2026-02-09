@@ -1,4 +1,4 @@
-image: /home/qasob/swarm_robots_ws/src/map_provider/maps/ab_with_lab.pgm
+image: ab_with_lab.pgm
 resolution: 0.050000
 origin: [-5.5, -5.0, 0.000000]
 negate: 0
