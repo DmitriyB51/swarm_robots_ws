@@ -110,7 +110,10 @@ position = np.array([0.0, 0.0, 0.0], dtype=float)  # Start at 0.5m height
 
 
 # Velocity from ROS2 command
+cmd_vel_x = 0.0
+cmd_vel_y = 0.0
 cmd_vel_z = 0.0  # m/s
+
 dt = 1.0 / 60.0  # Time
 
 
@@ -127,9 +130,13 @@ rotor_angles = np.zeros(num_rotors, dtype=np.float32)  # Current angles
 
 
 def cmd_vel_callback(msg):
-    global cmd_vel_z
-    cmd_vel_z = msg.linear.z  # from cmd_vel
-    
+    global cmd_vel_x, cmd_vel_y, cmd_vel_z
+
+    # from cmd_vel
+    cmd_vel_x = msg.linear.x
+    cmd_vel_y = msg.linear.y
+    cmd_vel_z = msg.linear.z  
+
     
 
 
@@ -147,6 +154,8 @@ stage_units = get_stage_units()
 
 while simulation_app.is_running():
     
+    position[0] += cmd_vel_x * dt
+    position[1] += cmd_vel_y * dt
     position[2] += cmd_vel_z * dt  # z = z + velocity × time  
 
     # floor limit
