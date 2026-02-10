@@ -41,7 +41,7 @@ if assets_root_path is None:
 my_world = World(stage_units_in_meters=1.0)
 my_world.scene.add_default_ground_plane()  # add ground plane
 set_camera_view(
-    eye=[7, 0.0, 7], target=[0.00, 0.00, 0.00], camera_prim_path="/OmniverseKit_Persp"
+    eye=[-7, 0.0, 7], target=[0.00, 0.00, 0.00], camera_prim_path="/OmniverseKit_Persp"
 )  # set camera view
 
 
