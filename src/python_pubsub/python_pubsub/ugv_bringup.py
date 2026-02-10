@@ -28,14 +28,14 @@ class JetbotROSNode(Node):
         # Publisher
         self.pose_pub = self.create_publisher(
             PoseStamped,
-            "drone_pose",
+            "ugv/pose",
             10
         )
 
         # Subscriber
         self.cmd_sub = self.create_subscription(
             Twist,
-            "cmd_vel",
+            "ugv/cmd_vel",
             self.cmd_vel_callback,
             10
         )
