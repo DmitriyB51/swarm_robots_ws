@@ -11,7 +11,7 @@ import carb
 import numpy as np
 from isaacsim.core.api import World
 from isaacsim.core.prims import Articulation
-from isaacsim.core.utils.stage import add_reference_to_stage
+from isaacsim.core.utils.stage import add_reference_to_stage, get_stage_units
 from isaacsim.storage.native import get_assets_root_path
 
 
@@ -65,6 +65,14 @@ jetbot = Articulation(
     prim_paths_expr="/World/Jetbot",
     name="my_jetbot"
 )
+
+# jetbot.set_world_poses(
+#     position=np.array([3.5, -6.5, 0.0]),
+#     orientation=np.array([0.0, 0.0, 0.0, 0.1])
+# )
+
+jetbot.set_world_poses(positions=np.array([[3.5, -6.5, 0.0]]) / get_stage_units())
+
 
 my_world.reset()
 
