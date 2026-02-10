@@ -14,12 +14,13 @@ from isaacsim.core.utils.viewports import set_camera_view
 from isaacsim.storage.native import get_assets_root_path
 from isaacsim.core.utils.extensions import enable_extension
 
-import os
+
 
 # ROS2
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import PoseStamped, Twist
+
 
 
 # Enable extensions
@@ -47,19 +48,17 @@ set_camera_view(
 
 
 
-# asset_path = assets_root_path + "/Isaac/Robots/Bitcraze/Crazyflie/cf2x.usd"
-# asset_path = "/home/qasob/swarm_robots_ws/src/robots/vtol_swarm_config.usd"
-asset_path = os.path.expanduser("~/swarm_robots_ws/src/vtol_dron_description/urdf/vtol_simple/vtol_simple_swarm.usd")
+asset_path = assets_root_path + "/Isaac/Robots/Bitcraze/Crazyflie/cf2x.usd"
 
 
 
-add_reference_to_stage(usd_path=asset_path, prim_path="/World/vtol_drone")
+add_reference_to_stage(usd_path=asset_path, prim_path="/World/drone")
 
 # Add DriveAPI to all joints before reset
 from pxr import UsdPhysics, Usd
 
 stage = my_world.stage
-drone_prim = stage.GetPrimAtPath("/World/vtol_drone")
+drone_prim = stage.GetPrimAtPath("/World/drone")
 for prim in Usd.PrimRange(drone_prim):
     if prim.IsA(UsdPhysics.RevoluteJoint):
         drive = UsdPhysics.DriveAPI.Apply(prim, "angular")
@@ -72,7 +71,7 @@ for prim in Usd.PrimRange(drone_prim):
 
 
 
-drone = Articulation(prim_paths_expr="/World/vtol_drone", name="my_drone")
+drone = Articulation(prim_paths_expr="/World/drone", name="my_drone")
 
 
 
@@ -95,17 +94,36 @@ target_velocities = np.array([0.0, 0.0, 0.0, 0.0])
 # cmd_vel callback: converts Twist message to 4 motor speeds
 def cmd_vel_callback(msg):
     global target_velocities
-    thrust = msg.linear.z     
-    roll   = msg.angular.x    
-    pitch  = msg.angular.y    
-    yaw    = msg.angular.z    
 
-    # convert Twist to individual motor speeds
-    
-    m1 =  (thrust + pitch + roll + yaw)
-    m2 = -(thrust - pitch + roll - yaw)
-    m3 =  (thrust + pitch - roll - yaw)
-    m4 = -(thrust - pitch - roll + yaw)
+    # Map Twist message to drone control commands
+    thrust = msg.linear.z     # Up/down movement
+    pitch  = msg.linear.x     # Forward/backward movement
+    roll   = msg.linear.y     # Left/right strafe movement
+    yaw    = msg.angular.z    # Rotation around vertical axis
+
+    # X-configuration quadcopter motor mixing:
+    #       Front
+    #        ↑
+    #    M2     M3
+    #      \   /
+    #       \ /
+    #       / \
+    #      /   \
+    #    M1     M4
+    #       Back
+    #
+    # Motor directions (from quadcopter_drone_test.py):
+    # M1, M3: CCW rotation (positive)
+    # M2, M4: CW rotation (negative)
+    #
+    # Forward (pitch > 0): M2,M3 slower, M1,M4 faster → nose down
+    # Right (roll > 0): M2,M1 slower, M3,M4 faster → tilt right
+    # CCW rotation (yaw > 0): M1,M3 faster, M2,M4 slower
+
+    m1 = thrust + pitch - roll + yaw   # Back-Left
+    m2 = thrust - pitch - roll - yaw   # Front-Left
+    m3 = thrust - pitch + roll + yaw   # Front-Right
+    m4 = thrust + pitch + roll - yaw   # Back-Right
 
     target_velocities = np.array([m1, m2, m3, m4])
 
@@ -124,7 +142,7 @@ while simulation_app.is_running():
     drone.set_joint_velocity_targets(target_velocities)
     my_world.step(render=True)
 
-    
+
     positions, orientations = drone.get_world_poses()
 
     # rounding for readability
@@ -144,7 +162,7 @@ while simulation_app.is_running():
     pose_msg.pose.orientation.z = float(ori[3])
     pose_publisher.publish(pose_msg)
 
-   
+
     rclpy.spin_once(ros_node, timeout_sec=0.0)
 
 
