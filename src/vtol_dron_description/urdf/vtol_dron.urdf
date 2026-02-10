@@ -96,14 +96,14 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="file:///home/qasob/swarm_robots_ws/install/vtol_dron_description/share/vtol_dron_description/meshes/base_link.stl" scale="0.001 0.001 0.001"/>
+        <mesh filename="file:///home/dmitriyb51/swarm_robots_ws/install/vtol_dron_description/share/vtol_dron_description/meshes/base_link.stl" scale="0.001 0.001 0.001"/>
       </geometry>
       <material name="silver"/>
     </visual>
     <collision>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="file:///home/qasob/swarm_robots_ws/install/vtol_dron_description/share/vtol_dron_description/meshes/base_link.stl" scale="0.001 0.001 0.001"/>
+        <mesh filename="file:///home/dmitriyb51/swarm_robots_ws/install/vtol_dron_description/share/vtol_dron_description/meshes/base_link.stl" scale="0.001 0.001 0.001"/>
       </geometry>
     </collision>
   </link>
@@ -116,14 +116,14 @@
     <visual>
       <origin rpy="0 0 0" xyz="-0.054972 0.875262 -0.047465"/>
       <geometry>
-        <mesh filename="file:///home/qasob/swarm_robots_ws/install/vtol_dron_description/share/vtol_dron_description/meshes/mechanism__1_1.stl" scale="0.001 0.001 0.001"/>
+        <mesh filename="file:///home/dmitriyb51/swarm_robots_ws/install/vtol_dron_description/share/vtol_dron_description/meshes/mechanism__1_1.stl" scale="0.001 0.001 0.001"/>
       </geometry>
       <material name="silver"/>
     </visual>
     <collision>
       <origin rpy="0 0 0" xyz="-0.054972 0.875262 -0.047465"/>
       <geometry>
-        <mesh filename="file:///home/qasob/swarm_robots_ws/install/vtol_dron_description/share/vtol_dron_description/meshes/mechanism__1_1.stl" scale="0.001 0.001 0.001"/>
+        <mesh filename="file:///home/dmitriyb51/swarm_robots_ws/install/vtol_dron_description/share/vtol_dron_description/meshes/mechanism__1_1.stl" scale="0.001 0.001 0.001"/>
       </geometry>
     </collision>
   </link>
@@ -136,14 +136,14 @@
     <visual>
       <origin rpy="0 0 0" xyz="0.444604 1.328822 -0.202098"/>
       <geometry>
-        <mesh filename="file:///home/qasob/swarm_robots_ws/install/vtol_dron_description/share/vtol_dron_description/meshes/rear_left_propeller_1_1.stl" scale="0.001 0.001 0.001"/>
+        <mesh filename="file:///home/dmitriyb51/swarm_robots_ws/install/vtol_dron_description/share/vtol_dron_description/meshes/rear_left_propeller_1_1.stl" scale="0.001 0.001 0.001"/>
       </geometry>
       <material name="silver"/>
     </visual>
     <collision>
       <origin rpy="0 0 0" xyz="0.444604 1.328822 -0.202098"/>
       <geometry>
-        <mesh filename="file:///home/qasob/swarm_robots_ws/install/vtol_dron_description/share/vtol_dron_description/meshes/rear_left_propeller_1_1.stl" scale="0.001 0.001 0.001"/>
+        <mesh filename="file:///home/dmitriyb51/swarm_robots_ws/install/vtol_dron_description/share/vtol_dron_description/meshes/rear_left_propeller_1_1.stl" scale="0.001 0.001 0.001"/>
       </geometry>
     </collision>
   </link>
@@ -156,14 +156,14 @@
     <visual>
       <origin rpy="0 0 0" xyz="-0.555396 1.328822 -0.202098"/>
       <geometry>
-        <mesh filename="file:///home/qasob/swarm_robots_ws/install/vtol_dron_description/share/vtol_dron_description/meshes/rear_right__1_1.stl" scale="0.001 0.001 0.001"/>
+        <mesh filename="file:///home/dmitriyb51/swarm_robots_ws/install/vtol_dron_description/share/vtol_dron_description/meshes/rear_right__1_1.stl" scale="0.001 0.001 0.001"/>
       </geometry>
       <material name="silver"/>
     </visual>
     <collision>
       <origin rpy="0 0 0" xyz="-0.555396 1.328822 -0.202098"/>
       <geometry>
-        <mesh filename="file:///home/qasob/swarm_robots_ws/install/vtol_dron_description/share/vtol_dron_description/meshes/rear_right__1_1.stl" scale="0.001 0.001 0.001"/>
+        <mesh filename="file:///home/dmitriyb51/swarm_robots_ws/install/vtol_dron_description/share/vtol_dron_description/meshes/rear_right__1_1.stl" scale="0.001 0.001 0.001"/>
       </geometry>
     </collision>
   </link>
@@ -176,14 +176,14 @@
     <visual>
       <origin rpy="0 0 0" xyz="0.444604 0.278822 -0.202098"/>
       <geometry>
-        <mesh filename="file:///home/qasob/swarm_robots_ws/install/vtol_dron_description/share/vtol_dron_description/meshes/front_left_propeller_1_1.stl" scale="0.001 0.001 0.001"/>
+        <mesh filename="file:///home/dmitriyb51/swarm_robots_ws/install/vtol_dron_description/share/vtol_dron_description/meshes/front_left_propeller_1_1.stl" scale="0.001 0.001 0.001"/>
       </geometry>
       <material name="silver"/>
     </visual>
     <collision>
       <origin rpy="0 0 0" xyz="0.444604 0.278822 -0.202098"/>
       <geometry>
-        <mesh filename="file:///home/qasob/swarm_robots_ws/install/vtol_dron_description/share/vtol_dron_description/meshes/front_left_propeller_1_1.stl" scale="0.001 0.001 0.001"/>
+        <mesh filename="file:///home/dmitriyb51/swarm_robots_ws/install/vtol_dron_description/share/vtol_dron_description/meshes/front_left_propeller_1_1.stl" scale="0.001 0.001 0.001"/>
       </geometry>
     </collision>
   </link>
@@ -196,14 +196,14 @@
     <visual>
       <origin rpy="0 0 0" xyz="-0.555396 0.278822 -0.202098"/>
       <geometry>
-        <mesh filename="file:///home/qasob/swarm_robots_ws/install/vtol_dron_description/share/vtol_dron_description/meshes/right_front_propeller_1_1.stl" scale="0.001 0.001 0.001"/>
+        <mesh filename="file:///home/dmitriyb51/swarm_robots_ws/install/vtol_dron_description/share/vtol_dron_description/meshes/right_front_propeller_1_1.stl" scale="0.001 0.001 0.001"/>
       </geometry>
       <material name="silver"/>
     </visual>
     <collision>
       <origin rpy="0 0 0" xyz="-0.555396 0.278822 -0.202098"/>
       <geometry>
-        <mesh filename="file:///home/qasob/swarm_robots_ws/install/vtol_dron_description/share/vtol_dron_description/meshes/right_front_propeller_1_1.stl" scale="0.001 0.001 0.001"/>
+        <mesh filename="file:///home/dmitriyb51/swarm_robots_ws/install/vtol_dron_description/share/vtol_dron_description/meshes/right_front_propeller_1_1.stl" scale="0.001 0.001 0.001"/>
       </geometry>
     </collision>
   </link>
