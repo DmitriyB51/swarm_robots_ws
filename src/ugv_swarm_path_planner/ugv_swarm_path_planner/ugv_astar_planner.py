@@ -15,7 +15,7 @@ class AStarPlanner(Node):
         super().__init__('ugv_path_planner')
 
         # ---------------- PARAMETERS ----------------
-        self.start_world = (0.0, -5.0)  # fixed start (x, y) in meters
+        self.start_world = (3.5, -6.5)  # fixed start (x, y) in meters
         self.obstacle_inflation_radius = 3  # cells
         self.occ_threshold = 50  # occupancy threshold
 
