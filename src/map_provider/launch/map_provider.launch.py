@@ -9,7 +9,7 @@ def generate_launch_description():
     # Declare the `map_file` argument
     map_file_arg = DeclareLaunchArgument(
         'map_file',
-        default_value = os.path.expanduser("~/swarm_robots_ws/src/map_provider/maps/ab_with_lab.yaml"),
+        default_value = os.path.expanduser("~/swarm_robots_ws/src/map_provider/maps/ab_map2.yaml"),
         description='Path to the map file'
     )
 
