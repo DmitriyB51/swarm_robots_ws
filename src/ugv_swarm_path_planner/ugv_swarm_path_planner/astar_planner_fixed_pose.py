@@ -14,11 +14,10 @@ class AStarPlanner(Node):
     def __init__(self):
         super().__init__('ugv_path_planner')
 
-        self.start_world = None
-        self.goal_world = None
-
+        # parameters
+        self.start_world = (3.5, -6.5)  # fixed start (x, y) in meters
         self.obstacle_inflation_radius = 3  # cells
-        self.occ_threshold = 50
+        self.occ_threshold = 50  # occupancy threshold
 
         # subscribers
         self.map_sub = self.create_subscription(
@@ -28,13 +27,8 @@ class AStarPlanner(Node):
             10
         )
 
-        self.pose_sub = self.create_subscription(
-            PoseStamped,
-            '/ugv/pose',
-            self.pose_callback,
-            10
-        )
 
+        # publishers
         self.goal_sub = self.create_subscription(
             PoseStamped,
             '/goal_pose',
@@ -42,7 +36,6 @@ class AStarPlanner(Node):
             10
         )
 
-        # publisher
         self.path_pub = self.create_publisher(
             Path,
             '/ugv/path',
@@ -51,44 +44,32 @@ class AStarPlanner(Node):
 
         self.map = None
         self.map_info = None
+        self.goal_world = None
 
-        self.get_logger().info("UGV A* Path Planner (pose-based) started")
+        self.get_logger().info("UGV A* Path Planner node started")
 
-
-
+    
     def map_callback(self, msg: OccupancyGrid):
         self.map_info = msg.info
         self.map = np.array(msg.data).reshape(
             (msg.info.height, msg.info.width)
         )
 
-    def pose_callback(self, msg: PoseStamped):
-        self.start_world = (
-            msg.pose.position.x,
-            msg.pose.position.y
-        )
-
     def goal_callback(self, msg: PoseStamped):
+        if self.map is None:
+            self.get_logger().warn("Map not received yet")
+            return
+
         self.goal_world = (
             msg.pose.position.x,
             msg.pose.position.y
         )
+
         self.plan_and_publish()
 
 
+    # PLANNING
     def plan_and_publish(self):
-        if self.map is None or self.map_info is None:
-            self.get_logger().warn("Map not received yet")
-            return
-
-        if self.start_world is None:
-            self.get_logger().warn("Robot pose not received yet")
-            return
-
-        if self.goal_world is None:
-            self.get_logger().warn("Goal not received yet")
-            return
-
         start = self.world_to_grid(self.start_world)
         goal = self.world_to_grid(self.goal_world)
 
@@ -107,13 +88,12 @@ class AStarPlanner(Node):
         self.get_logger().info("Path published")
 
 
-    #  A* 
-
+    # A* 
     def a_star(self, grid, start, goal):
         h = lambda a, b: math.hypot(a[0] - b[0], a[1] - b[1])
 
         open_set = []
-        heapq.heappush(open_set, (h(start, goal), 0, start))
+        heapq.heappush(open_set, (0 + h(start, goal), 0, start))
 
         came_from = {}
         g_score = {start: 0}
@@ -128,7 +108,8 @@ class AStarPlanner(Node):
                 return self.reconstruct_path(came_from, current)
 
             for dx, dy in neighbors:
-                nx, ny = current[0] + dx, current[1] + dy
+                nx = current[0] + dx
+                ny = current[1] + dy
                 neighbor = (nx, ny)
 
                 if not self.is_valid(grid, neighbor):
@@ -144,7 +125,6 @@ class AStarPlanner(Node):
 
         return []
 
-
     def reconstruct_path(self, came_from, current):
         path = [current]
         while current in came_from:
@@ -154,12 +134,11 @@ class AStarPlanner(Node):
         return path
 
 
-    #  map utils 
-
+    # map processing
     def inflate_obstacles(self, grid):
         inflated = np.copy(grid)
-        obstacle_cells = np.where(grid > self.occ_threshold)
 
+        obstacle_cells = np.where(grid > self.occ_threshold)
         for y, x in zip(*obstacle_cells):
             for dy in range(-self.obstacle_inflation_radius,
                             self.obstacle_inflation_radius + 1):
@@ -170,7 +149,6 @@ class AStarPlanner(Node):
                         inflated[ny, nx] = 100
         return inflated
 
-
     def is_valid(self, grid, cell):
         x, y = cell
         if x < 0 or y < 0:
@@ -180,8 +158,7 @@ class AStarPlanner(Node):
         return grid[y, x] < self.occ_threshold
 
 
-    #  smoothing 
-
+    # path smoothing
     def smooth_path(self, path):
         if len(path) < 3:
             return path
@@ -201,8 +178,7 @@ class AStarPlanner(Node):
         return smooth
 
 
-    #  conversions 
-
+    # world to grid conversions
     def world_to_grid(self, pos):
         x, y = pos
         gx = int((x - self.map_info.origin.position.x) / self.map_info.resolution)
@@ -214,7 +190,6 @@ class AStarPlanner(Node):
         wx = x * self.map_info.resolution + self.map_info.origin.position.x
         wy = y * self.map_info.resolution + self.map_info.origin.position.y
         return (wx, wy)
-
 
     def cells_to_path(self, cells):
         path = Path()
