@@ -49,7 +49,7 @@ set_camera_view(
 
 # asset_path = assets_root_path + "/Isaac/Robots/Bitcraze/Crazyflie/cf2x.usd"
 # asset_path = "/home/qasob/swarm_robots_ws/src/robots/vtol_swarm_config.usd"
-asset_path = os.path.expanduser("~/swarm_robots_ws/src/vtol_dron_description/urdf/vtol_simple/vtol_simple_swarm.usd")
+asset_path = os.path.expanduser("~/swarm_robots_ws/src/robots/vtol_swarm_config.usd")
 
 
 
