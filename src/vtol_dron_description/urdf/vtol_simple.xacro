@@ -1,0 +1,177 @@
+<?xml version="1.0" ?>
+<robot name="vtol_dron" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- Include materials and simulation files -->
+  <xacro:include filename="$(find vtol_dron_description)/urdf/materials.xacro" />
+  <xacro:include filename="$(find vtol_dron_description)/urdf/vtol_dron.trans" />
+  <xacro:include filename="$(find vtol_dron_description)/urdf/vtol_dron.gazebo" />
+
+  <!-- ==================== BASE LINK ==================== -->
+  <link name="base_link">
+    <inertial>
+      <!-- almost weightless -->
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.0001"/>
+      <inertia ixx="1e-6" iyy="1e-6" izz="1e-6" ixy="0" iyz="0" ixz="0"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="file://$(find vtol_dron_description)/meshes/base_link.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="silver"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="file://$(find vtol_dron_description)/meshes/base_link.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- ==================== MECHANISM ==================== -->
+  <link name="mechanism__1_1">
+    <inertial>
+      <!-- negligible mass -->
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.0001"/>
+      <inertia ixx="1e-6" iyy="1e-6" izz="1e-6" ixy="0" iyz="0" ixz="0"/>
+    </inertial>
+    <visual>
+      <origin xyz="0.014058 0.00682 -0.047465" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="file://$(find vtol_dron_description)/meshes/mechanism__1_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="silver"/>
+    </visual>
+    <collision>
+      <origin xyz="0.014058 0.00682 -0.047465" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="file://$(find vtol_dron_description)/meshes/mechanism__1_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- ==================== PROPELLER LINKS ==================== -->
+  <!-- Each propeller has realistic mass (0.75 kg) and simple inertia -->
+
+  <link name="rear_left_propeller_1">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.75"/>
+      <inertia ixx="0.001" iyy="0.001" izz="0.002" ixy="0" iyz="0" ixz="0"/>
+    </inertial>
+    <visual>
+      <origin xyz="0.467618 -0.492756 -0.202098" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="file://$(find vtol_dron_description)/meshes/rear_left_propeller_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="silver"/>
+    </visual>
+    <collision>
+      <origin xyz="0.467618 -0.492756 -0.202098" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="file://$(find vtol_dron_description)/meshes/rear_left_propeller_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="rear_right_propeller_1">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.75"/>
+      <inertia ixx="0.001" iyy="0.001" izz="0.002" ixy="0" iyz="0" ixz="0"/>
+    </inertial>
+    <visual>
+      <origin xyz="0.467618 0.507244 -0.202098" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="file://$(find vtol_dron_description)/meshes/rear_right_propeller_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="silver"/>
+    </visual>
+    <collision>
+      <origin xyz="0.467618 0.507244 -0.202098" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="file://$(find vtol_dron_description)/meshes/rear_right_propeller_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="front_left_propeller_1">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.75"/>
+      <inertia ixx="0.001" iyy="0.001" izz="0.002" ixy="0" iyz="0" ixz="0"/>
+    </inertial>
+    <visual>
+      <origin xyz="-0.582382 -0.492756 -0.202098" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="file://$(find vtol_dron_description)/meshes/front_left_propeller_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="silver"/>
+    </visual>
+    <collision>
+      <origin xyz="-0.582382 -0.492756 -0.202098" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="file://$(find vtol_dron_description)/meshes/front_left_propeller_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="front_right_propeller_1">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.75"/>
+      <inertia ixx="0.001" iyy="0.001" izz="0.002" ixy="0" iyz="0" ixz="0"/>
+    </inertial>
+    <visual>
+      <origin xyz="-0.582382 0.507244 -0.202098" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="file://$(find vtol_dron_description)/meshes/front_right_propeller_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="silver"/>
+    </visual>
+    <collision>
+      <origin xyz="-0.582382 0.507244 -0.202098" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="file://$(find vtol_dron_description)/meshes/front_right_propeller_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- ==================== JOINTS ==================== -->
+  <joint name="Rigid_16" type="fixed">
+    <origin xyz="-0.014058 -0.00682 0.047465" rpy="0 0 0"/>
+    <parent link="base_link"/>
+    <child link="mechanism__1_1"/>
+  </joint>
+
+  <joint name="Revolute_17" type="continuous">
+    <origin xyz="-0.467618 0.492756 0.202098" rpy="0 0 0"/>
+    <parent link="base_link"/>
+    <child link="rear_left_propeller_1"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+
+  <joint name="Revolute_18" type="continuous">
+    <origin xyz="-0.467618 -0.507244 0.202098" rpy="0 0 0"/>
+    <parent link="base_link"/>
+    <child link="rear_right_propeller_1"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+
+  <joint name="Revolute_19" type="continuous">
+    <origin xyz="0.582382 0.492756 0.202098" rpy="0 0 0"/>
+    <parent link="base_link"/>
+    <child link="front_left_propeller_1"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+
+  <joint name="Revolute_20" type="continuous">
+    <origin xyz="0.582382 -0.507244 0.202098" rpy="0 0 0"/>
+    <parent link="base_link"/>
+    <child link="front_right_propeller_1"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+
+</robot>

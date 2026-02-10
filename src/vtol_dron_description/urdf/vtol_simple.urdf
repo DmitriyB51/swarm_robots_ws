@@ -98,14 +98,14 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="file:///vtol_drone_ws/install/vtol_dron_description/share/vtol_dron_description/meshes/base_link.stl" scale="0.001 0.001 0.001"/>
+        <mesh filename="meshes/base_link.stl" scale="0.001 0.001 0.001"/>
       </geometry>
       <material name="silver"/>
     </visual>
     <collision>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="file:///vtol_drone_ws/install/vtol_dron_description/share/vtol_dron_description/meshes/base_link.stl" scale="0.001 0.001 0.001"/>
+        <mesh filename="meshes/base_link.stl" scale="0.001 0.001 0.001"/>
       </geometry>
     </collision>
   </link>
@@ -120,14 +120,14 @@
     <visual>
       <origin rpy="0 0 0" xyz="0.014058 0.00682 -0.047465"/>
       <geometry>
-        <mesh filename="file:///vtol_drone_ws/install/vtol_dron_description/share/vtol_dron_description/meshes/mechanism__1_1.stl" scale="0.001 0.001 0.001"/>
+        <mesh filename="meshes/mechanism__1_1.stl" scale="0.001 0.001 0.001"/>
       </geometry>
       <material name="silver"/>
     </visual>
     <collision>
       <origin rpy="0 0 0" xyz="0.014058 0.00682 -0.047465"/>
       <geometry>
-        <mesh filename="file:///vtol_drone_ws/install/vtol_dron_description/share/vtol_dron_description/meshes/mechanism__1_1.stl" scale="0.001 0.001 0.001"/>
+        <mesh filename="meshes/mechanism__1_1.stl" scale="0.001 0.001 0.001"/>
       </geometry>
     </collision>
   </link>
@@ -142,14 +142,14 @@
     <visual>
       <origin rpy="0 0 0" xyz="0.467618 -0.492756 -0.202098"/>
       <geometry>
-        <mesh filename="file:///vtol_drone_ws/install/vtol_dron_description/share/vtol_dron_description/meshes/rear_left_propeller_1.stl" scale="0.001 0.001 0.001"/>
+        <mesh filename="meshes/rear_left_propeller_1.stl" scale="0.001 0.001 0.001"/>
       </geometry>
       <material name="silver"/>
     </visual>
     <collision>
       <origin rpy="0 0 0" xyz="0.467618 -0.492756 -0.202098"/>
       <geometry>
-        <mesh filename="file:///vtol_drone_ws/install/vtol_dron_description/share/vtol_dron_description/meshes/rear_left_propeller_1.stl" scale="0.001 0.001 0.001"/>
+        <mesh filename="meshes/rear_left_propeller_1.stl" scale="0.001 0.001 0.001"/>
       </geometry>
     </collision>
   </link>
@@ -162,14 +162,14 @@
     <visual>
       <origin rpy="0 0 0" xyz="0.467618 0.507244 -0.202098"/>
       <geometry>
-        <mesh filename="file:///vtol_drone_ws/install/vtol_dron_description/share/vtol_dron_description/meshes/rear_right_propeller_1.stl" scale="0.001 0.001 0.001"/>
+        <mesh filename="meshes/rear_right_propeller_1.stl" scale="0.001 0.001 0.001"/>
       </geometry>
       <material name="silver"/>
     </visual>
     <collision>
       <origin rpy="0 0 0" xyz="0.467618 0.507244 -0.202098"/>
       <geometry>
-        <mesh filename="file:///vtol_drone_ws/install/vtol_dron_description/share/vtol_dron_description/meshes/rear_right_propeller_1.stl" scale="0.001 0.001 0.001"/>
+        <mesh filename="meshes/rear_right_propeller_1.stl" scale="0.001 0.001 0.001"/>
       </geometry>
     </collision>
   </link>
@@ -182,14 +182,14 @@
     <visual>
       <origin rpy="0 0 0" xyz="-0.582382 -0.492756 -0.202098"/>
       <geometry>
-        <mesh filename="file:///vtol_drone_ws/install/vtol_dron_description/share/vtol_dron_description/meshes/front_left_propeller_1.stl" scale="0.001 0.001 0.001"/>
+        <mesh filename="meshes/front_left_propeller_1.stl" scale="0.001 0.001 0.001"/>
       </geometry>
       <material name="silver"/>
     </visual>
     <collision>
       <origin rpy="0 0 0" xyz="-0.582382 -0.492756 -0.202098"/>
       <geometry>
-        <mesh filename="file:///vtol_drone_ws/install/vtol_dron_description/share/vtol_dron_description/meshes/front_left_propeller_1.stl" scale="0.001 0.001 0.001"/>
+        <mesh filename="meshes/front_left_propeller_1.stl" scale="0.001 0.001 0.001"/>
       </geometry>
     </collision>
   </link>
@@ -202,14 +202,14 @@
     <visual>
       <origin rpy="0 0 0" xyz="-0.582382 0.507244 -0.202098"/>
       <geometry>
-        <mesh filename="file:///vtol_drone_ws/install/vtol_dron_description/share/vtol_dron_description/meshes/front_right_propeller_1.stl" scale="0.001 0.001 0.001"/>
+        <mesh filename="meshes/front_right_propeller_1.stl" scale="0.001 0.001 0.001"/>
       </geometry>
       <material name="silver"/>
     </visual>
     <collision>
       <origin rpy="0 0 0" xyz="-0.582382 0.507244 -0.202098"/>
       <geometry>
-        <mesh filename="file:///vtol_drone_ws/install/vtol_dron_description/share/vtol_dron_description/meshes/front_right_propeller_1.stl" scale="0.001 0.001 0.001"/>
+        <mesh filename="meshes/front_right_propeller_1.stl" scale="0.001 0.001 0.001"/>
       </geometry>
     </collision>
   </link>

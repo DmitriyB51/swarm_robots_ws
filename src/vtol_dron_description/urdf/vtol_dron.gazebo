@@ -21,28 +21,28 @@
   <self_collide>true</self_collide>
 </gazebo>
 
-<gazebo reference="rear_left_propeller_1_1">
+<gazebo reference="rear_left_propeller_1">
   <material>${body_color}</material>
   <mu1>0.2</mu1>
   <mu2>0.2</mu2>
   <self_collide>true</self_collide>
 </gazebo>
 
-<gazebo reference="rear_right__1_1">
+<gazebo reference="rear_right_propeller_1">
   <material>${body_color}</material>
   <mu1>0.2</mu1>
   <mu2>0.2</mu2>
   <self_collide>true</self_collide>
 </gazebo>
 
-<gazebo reference="front_left_propeller_1_1">
+<gazebo reference="front_left_propeller_1">
   <material>${body_color}</material>
   <mu1>0.2</mu1>
   <mu2>0.2</mu2>
   <self_collide>true</self_collide>
 </gazebo>
 
-<gazebo reference="right_front_propeller_1_1">
+<gazebo reference="front_right_propeller_1">
   <material>${body_color}</material>
   <mu1>0.2</mu1>
   <mu2>0.2</mu2>
