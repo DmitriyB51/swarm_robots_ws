@@ -1,9 +1,10 @@
-# Copyright (c) 2020-2024, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 
 from isaacsim import SimulationApp
 
-# 1. Start the simulation app
-simulation_app = SimulationApp({"headless": False}) 
+simulation_app = SimulationApp({"headless": False})
+from omni.isaac.core.utils.extensions import enable_extension
+enable_extension("omni.isaac.ros2_bridge")
 
 import sys
 import carb
@@ -13,43 +14,114 @@ from isaacsim.core.prims import Articulation
 from isaacsim.core.utils.stage import add_reference_to_stage
 from isaacsim.storage.native import get_assets_root_path
 
-# 2. Preparing the scene
+
+import rclpy
+from rclpy.node import Node
+from geometry_msgs.msg import PoseStamped, Twist
+
+
+
+class JetbotROSNode(Node):
+    def __init__(self):
+        super().__init__("jetbot_ros_node")
+
+        # Publisher
+        self.pose_pub = self.create_publisher(
+            PoseStamped,
+            "drone_pose",
+            10
+        )
+
+        # Subscriber
+        self.cmd_sub = self.create_subscription(
+            Twist,
+            "cmd_vel",
+            self.cmd_vel_callback,
+            10
+        )
+
+        self.linear_x = 0.0
+        self.angular_z = 0.0
+
+    def cmd_vel_callback(self, msg: Twist):
+        self.linear_x = msg.linear.x
+        self.angular_z = msg.angular.z
+
+
 assets_root_path = get_assets_root_path()
 if assets_root_path is None:
     carb.log_error("Could not find Isaac Sim assets folder")
     simulation_app.close()
-    sys.exit()
+    sys.exit(1)
 
 my_world = World(stage_units_in_meters=1.0)
 my_world.scene.add_default_ground_plane()
 
-# 3. Add Jetbot
-# The Jetbot is a two-wheeled differential drive robot
-asset_path = assets_root_path + "/Isaac/Robots/Jetbot/jetbot.usd"
-add_reference_to_stage(usd_path=asset_path, prim_path="/World/Jetbot")
-jetbot = Articulation(prim_paths_expr="/World/Jetbot", name="my_jetbot")
 
-# 4. Initialize the world
+jetbot_usd = assets_root_path + "/Isaac/Robots/Jetbot/jetbot.usd"
+add_reference_to_stage(jetbot_usd, "/World/Jetbot")
+
+jetbot = Articulation(
+    prim_paths_expr="/World/Jetbot",
+    name="my_jetbot"
+)
+
 my_world.reset()
 
-print("Simulation started. Close the window to stop.")
 
-# 5. The "While Logic" Loop
-# This runs until the Simulation App is shut down by the user
+rclpy.init()
+ros_node = JetbotROSNode()
+
+print("Simulation running...")
+
+
+WHEEL_RADIUS = 0.03    # meters
+WHEEL_BASE = 0.1125  
+
+
 while simulation_app.is_running():
-    # step the simulation
+
     my_world.step(render=True)
-    
-    if my_world.is_playing():
-        # Jetbot has 2 wheel joints. 
-        # We apply equal velocity to both to move straight forward.
-        # Format is [[left_wheel_speed, right_wheel_speed]]
-        forward_velocity = np.array([[5.0, 5.0]])
-        jetbot.set_joint_velocities(forward_velocity)
-        
-        # Optional: Print positions to console
-        joint_positions = jetbot.get_joint_positions()
-        # print(f"Current Wheel Positions: {joint_positions}")
+    rclpy.spin_once(ros_node, timeout_sec=0.0)
+
+    if not my_world.is_playing():
+        continue
+
+
+    positions, orientations = jetbot.get_world_poses()
+
+    # Root link pose
+    pos = positions[0]        # shape (3,)
+    rot = orientations[0]     # shape (4,)
+
+
+    # publisher
+    pose_msg = PoseStamped()
+    pose_msg.header.stamp = ros_node.get_clock().now().to_msg()
+    pose_msg.header.frame_id = "world"
+
+    pose_msg.pose.position.x = float(pos[0])
+    pose_msg.pose.position.y = float(pos[1])
+    pose_msg.pose.position.z = float(pos[2])
+
+    pose_msg.pose.orientation.x = float(rot[0])
+    pose_msg.pose.orientation.y = float(rot[1])
+    pose_msg.pose.orientation.z = float(rot[2])
+    pose_msg.pose.orientation.w = float(rot[3])
+
+    ros_node.pose_pub.publish(pose_msg)
+
+    # subscriber
+    v = ros_node.linear_x
+    w = ros_node.angular_z
+
+    left_wheel_vel = (v - w * WHEEL_BASE / 2.0) / WHEEL_RADIUS
+    right_wheel_vel = (v + w * WHEEL_BASE / 2.0) / WHEEL_RADIUS
+
+    wheel_vels = np.array([[left_wheel_vel, right_wheel_vel]])
+    jetbot.set_joint_velocities(wheel_vels)
 
 # Cleanup
+ros_node.destroy_node()
+rclpy.shutdown()
 simulation_app.close()
