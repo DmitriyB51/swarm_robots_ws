@@ -14,12 +14,12 @@ class AStarPlanner(Node):
     def __init__(self):
         super().__init__('ugv_path_planner')
 
-        # ---------------- PARAMETERS ----------------
+        # parameters
         self.start_world = (3.5, -6.5)  # fixed start (x, y) in meters
         self.obstacle_inflation_radius = 3  # cells
         self.occ_threshold = 50  # occupancy threshold
 
-        # ---------------- SUB / PUB ----------------
+        # subscribers
         self.map_sub = self.create_subscription(
             OccupancyGrid,
             '/map',
@@ -27,6 +27,8 @@ class AStarPlanner(Node):
             10
         )
 
+
+        # publishers
         self.goal_sub = self.create_subscription(
             PoseStamped,
             '/goal_pose',
@@ -40,17 +42,13 @@ class AStarPlanner(Node):
             10
         )
 
-        # ---------------- INTERNAL ----------------
         self.map = None
         self.map_info = None
         self.goal_world = None
 
         self.get_logger().info("UGV A* Path Planner node started")
 
-    # ======================================================
-    # CALLBACKS
-    # ======================================================
-
+    
     def map_callback(self, msg: OccupancyGrid):
         self.map_info = msg.info
         self.map = np.array(msg.data).reshape(
@@ -69,10 +67,8 @@ class AStarPlanner(Node):
 
         self.plan_and_publish()
 
-    # ======================================================
-    # PLANNING
-    # ======================================================
 
+    # PLANNING
     def plan_and_publish(self):
         start = self.world_to_grid(self.start_world)
         goal = self.world_to_grid(self.goal_world)
@@ -91,10 +87,8 @@ class AStarPlanner(Node):
         self.path_pub.publish(path_msg)
         self.get_logger().info("Path published")
 
-    # ======================================================
-    # A* IMPLEMENTATION
-    # ======================================================
 
+    # A* 
     def a_star(self, grid, start, goal):
         h = lambda a, b: math.hypot(a[0] - b[0], a[1] - b[1])
 
@@ -139,10 +133,8 @@ class AStarPlanner(Node):
         path.reverse()
         return path
 
-    # ======================================================
-    # MAP PROCESSING
-    # ======================================================
 
+    # map processing
     def inflate_obstacles(self, grid):
         inflated = np.copy(grid)
 
@@ -165,10 +157,8 @@ class AStarPlanner(Node):
             return False
         return grid[y, x] < self.occ_threshold
 
-    # ======================================================
-    # SMOOTHING
-    # ======================================================
 
+    # path smoothing
     def smooth_path(self, path):
         if len(path) < 3:
             return path
@@ -187,10 +177,8 @@ class AStarPlanner(Node):
         smooth.append(path[-1])
         return smooth
 
-    # ======================================================
-    # CONVERSIONS
-    # ======================================================
 
+    # world to grid conversions
     def world_to_grid(self, pos):
         x, y = pos
         gx = int((x - self.map_info.origin.position.x) / self.map_info.resolution)
