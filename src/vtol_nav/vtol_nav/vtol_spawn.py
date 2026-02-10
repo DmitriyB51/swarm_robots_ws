@@ -41,7 +41,7 @@ if assets_root_path is None:
 my_world = World(stage_units_in_meters=1.0)
 my_world.scene.add_default_ground_plane()  # add ground plane
 set_camera_view(
-    eye=[0.5, 0.0, 0.5], target=[0.00, 0.00, 0.00], camera_prim_path="/OmniverseKit_Persp"
+    eye=[-7, 0.0, 7], target=[0.00, 0.00, 0.00], camera_prim_path="/OmniverseKit_Persp"
 )  # set camera view
 
 
@@ -114,6 +114,16 @@ cmd_vel_x = 0.0
 cmd_vel_y = 0.0
 cmd_vel_z = 0.0  # m/s
 
+# Current orientation (Euler angles in radians)
+roll = 0.0   # Rotation around X-axis (tilt left/right)
+pitch = 0.0  # Rotation around Y-axis (tilt forward/back)
+yaw = 0.0    # Rotation around Z-axis (spin left/right)
+
+# Angular velocities from ROS2 (rad/s)
+cmd_angular_x = 0.0  # Roll rate
+cmd_angular_y = 0.0  # Pitch rate
+cmd_angular_z = 0.0  # Yaw rate
+
 dt = 1.0 / 60.0  # Time
 
 
@@ -121,9 +131,22 @@ dt = 1.0 / 60.0  # Time
 
 
 # Propeller spinning (visual effect)
-base_spin_vel = np.array([80.0, -80.0, 80.0, -80.0], dtype=np.float32)  
+base_spin_vel = np.array([80.0, -80.0, 80.0, -80.0], dtype=np.float32)
 num_rotors = min(4, num_dofs)  # 4 rotors
 rotor_angles = np.zeros(num_rotors, dtype=np.float32)  # Current angles
+
+def euler_to_quat(roll, pitch, yaw):
+    """Convert Euler angles to quaternion [w, x, y, z]"""
+    cr, sr = np.cos(roll/2), np.sin(roll/2)
+    cp, sp = np.cos(pitch/2), np.sin(pitch/2)
+    cy, sy = np.cos(yaw/2), np.sin(yaw/2)
+
+    qw = cr * cp * cy + sr * sp * sy
+    qx = sr * cp * cy - cr * sp * sy
+    qy = cr * sp * cy + sr * cp * sy
+    qz = cr * cp * sy - sr * sp * cy
+
+    return qw, qx, qy, qz
 
 
 
@@ -131,11 +154,17 @@ rotor_angles = np.zeros(num_rotors, dtype=np.float32)  # Current angles
 
 def cmd_vel_callback(msg):
     global cmd_vel_x, cmd_vel_y, cmd_vel_z
+    global cmd_angular_x, cmd_angular_y, cmd_angular_z
 
-    # from cmd_vel
+    # Linear velocities
     cmd_vel_x = msg.linear.x
     cmd_vel_y = msg.linear.y
-    cmd_vel_z = msg.linear.z  
+    cmd_vel_z = msg.linear.z
+
+    # Angular velocities
+    cmd_angular_x = msg.angular.x  # Roll rate
+    cmd_angular_y = msg.angular.y  # Pitch rate
+    cmd_angular_z = msg.angular.z  # Yaw rate  
 
     
 
@@ -153,19 +182,27 @@ cmd_vel_subscriber = ros_node.create_subscription(Twist, "/cmd_vel", cmd_vel_cal
 stage_units = get_stage_units()
 
 while simulation_app.is_running():
-    
+
+    # Update position
     position[0] += cmd_vel_x * dt
     position[1] += cmd_vel_y * dt
-    position[2] += cmd_vel_z * dt  # z = z + velocity × time  
+    position[2] += cmd_vel_z * dt
 
-    # floor limit
+    # Update orientation
+    roll += cmd_angular_x * dt   # Integrate roll
+    pitch += cmd_angular_y * dt  # Integrate pitch
+    yaw += cmd_angular_z * dt    # Integrate yaw
+
+    # Floor limit
     if position[2] < 0.0:
         position[2] = 0.0
 
-    # Set drone to this position (manually)
-    positions = (position / stage_units)[None, :] # initial: 0 0 0
-    orientation = np.array([[1.0, 0.0, 0.0, 0.0]], dtype=np.float32)  # Keep level
+    # Convert Euler to quaternion
+    qw, qx, qy, qz = euler_to_quat(roll, pitch, yaw)
+    orientation = np.array([[qw, qx, qy, qz]], dtype=np.float32)
 
+    # Apply pose
+    positions = (position / stage_units)[None, :]
     drone.set_world_poses(positions=positions, orientations=orientation)
 
     # Spin propellers continuously (visual only)
