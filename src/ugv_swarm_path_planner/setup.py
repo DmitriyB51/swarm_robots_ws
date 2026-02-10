@@ -25,6 +25,7 @@ setup(
     entry_points={
         'console_scripts': [
             'ugv_astar_planner = ugv_swarm_path_planner.ugv_astar_planner:main',
+            'ugv_controller = ugv_swarm_path_planner.ugv_controller:main',
         ],
     },
 )
