@@ -49,7 +49,7 @@ set_camera_view(
 
 # asset_path = assets_root_path + "/Isaac/Robots/Bitcraze/Crazyflie/cf2x.usd"
 # asset_path = "/home/qasob/swarm_robots_ws/src/robots/vtol_swarm_config.usd"
-asset_path = os.path.expanduser("~/swarm_robots_ws/src/robots/vtol_swarm_config.usd")
+asset_path = os.path.expanduser("~/swarm_robots_ws/src/vtol_dron_description/urdf/vtol_simple/vtol_simple.usd")
 
 
 
@@ -60,6 +60,23 @@ from pxr import UsdPhysics, Usd
 
 stage = my_world.stage
 drone_prim = stage.GetPrimAtPath("/World/vtol_drone")
+
+
+
+
+
+
+# Disable physics on the base - движем дрон сами, не физикой
+if drone_prim and drone_prim.HasAPI(UsdPhysics.RigidBodyAPI):
+    rigid_body = UsdPhysics.RigidBodyAPI(drone_prim)
+    rigid_body.CreateKinematicEnabledAttr(True)
+    print("Base set to kinematic mode (physics disabled)")
+
+
+
+
+
+
 for prim in Usd.PrimRange(drone_prim):
     if prim.IsA(UsdPhysics.RevoluteJoint):
         drive = UsdPhysics.DriveAPI.Apply(prim, "angular")
@@ -87,27 +104,33 @@ my_world.reset()
 
 num_dofs = drone.num_dof
 
+# Current drone position (you control this)
+position = np.array([0.0, 0.0, 0.0], dtype=float)  # Start at 0.5m height
 
-# Motor speeds — updated by cmd_vel callback
-target_velocities = np.array([0.0, 0.0, 0.0, 0.0])
 
 
-# cmd_vel callback: converts Twist message to 4 motor speeds
+# Velocity from ROS2 command
+cmd_vel_z = 0.0  # m/s
+dt = 1.0 / 60.0  # Time
+
+
+
+
+
+# Propeller spinning (visual effect)
+base_spin_vel = np.array([80.0, -80.0, 80.0, -80.0], dtype=np.float32)  
+num_rotors = min(4, num_dofs)  # 4 rotors
+rotor_angles = np.zeros(num_rotors, dtype=np.float32)  # Current angles
+
+
+
+
+
 def cmd_vel_callback(msg):
-    global target_velocities
-    thrust = msg.linear.z     
-    roll   = msg.angular.x    
-    pitch  = msg.angular.y    
-    yaw    = msg.angular.z    
-
-    # convert Twist to individual motor speeds
+    global cmd_vel_z
+    cmd_vel_z = msg.linear.z  # from cmd_vel
     
-    m1 =  (thrust + pitch + roll + yaw)
-    m2 = -(thrust - pitch + roll - yaw)
-    m3 =  (thrust + pitch - roll - yaw)
-    m4 = -(thrust - pitch - roll + yaw)
-
-    target_velocities = np.array([m1, m2, m3, m4])
+    
 
 
 # ros2 pub sub
@@ -120,11 +143,39 @@ cmd_vel_subscriber = ros_node.create_subscription(Twist, "/cmd_vel", cmd_vel_cal
 
 
 
+stage_units = get_stage_units()
+
 while simulation_app.is_running():
-    drone.set_joint_velocity_targets(target_velocities)
+    
+    position[2] += cmd_vel_z * dt  # z = z + velocity × time  
+
+    # floor limit
+    if position[2] < 0.0:
+        position[2] = 0.0
+
+    # Set drone to this position (manually)
+    positions = (position / stage_units)[None, :] # initial: 0 0 0
+    orientation = np.array([[1.0, 0.0, 0.0, 0.0]], dtype=np.float32)  # Keep level
+
+    drone.set_world_poses(positions=positions, orientations=orientation)
+
+    # Spin propellers continuously (visual only)
+    rotor_omega = base_spin_vel[:num_rotors]  # Constant speed
+    rotor_angles += rotor_omega * dt  # Update angles
+    rotor_angles = (rotor_angles + np.pi) % (2 * np.pi) - np.pi  # Wrap to [-π, π]
+
+    # Set propeller positions and velocities
+    joint_pos = np.zeros((1, num_dofs), dtype=np.float32)
+    joint_pos[0, :num_rotors] = rotor_angles
+    drone.set_joint_positions(joint_pos)
+
+    joint_vel = np.zeros((1, num_dofs), dtype=np.float32)
+    joint_vel[0, :num_rotors] = rotor_omega
+    drone.set_joint_velocities(joint_vel)
+
     my_world.step(render=True)
 
-    
+
     positions, orientations = drone.get_world_poses()
 
     # rounding for readability
