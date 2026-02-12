@@ -24,6 +24,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'drone_slave_controller = vtol_controller.drone_slave_controller:main',
         ],
     },
 )
