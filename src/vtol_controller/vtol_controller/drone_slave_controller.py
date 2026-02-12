@@ -18,7 +18,7 @@ class PID:
     def reset(self):
         self.prev_error = 0.0
         self.integral = 0.0
-
+            
     def compute(self, error, dt):
         if dt <= 0.0:
             return 0.0
@@ -64,9 +64,9 @@ class DroneSlaveController(Node):
         self.cmd_pub = self.create_publisher(Twist, '/cmd_vel', 10)
 
         # PID
-        self.pid_x = PID(kp=1.0, ki=0.0, kd=0.3, limit=2.0)
-        self.pid_y = PID(kp=1.0, ki=0.0, kd=0.3, limit=2.0)
-        self.pid_z = PID(kp=1.2, ki=0.0, kd=0.4, limit=1.5)
+        self.pid_x = PID(kp=1.0, ki=0.01, kd=0.5, limit=2.0)
+        self.pid_y = PID(kp=1.0, ki=0.01, kd=0.5, limit=2.0)
+        self.pid_z = PID(kp=1.2, ki=0.01, kd=0.6, limit=1.5)
 
         self.goal_pose = None
         self.current_pose = None
