@@ -59,6 +59,13 @@ add_reference_to_stage(usd_path=asset_path, prim_path="/World/vtol_drone")
 from pxr import UsdPhysics, Usd
 
 stage = my_world.stage
+
+# Add scene lighting
+from pxr import UsdLux
+dome_light = UsdLux.DomeLight.Define(stage, "/World/DomeLight")
+dome_light.CreateIntensityAttr(500)
+
+
 drone_prim = stage.GetPrimAtPath("/World/vtol_drone")
 
 
@@ -101,6 +108,8 @@ drone.set_world_poses(positions=np.array([[0.0, 0, 0.0]]) / get_stage_units())
 # initialize the world
 my_world.reset()
 
+# Remove default SphereLight after world is initialized
+stage.RemovePrim("/World/defaultGroundPlane/SphereLight")
 
 num_dofs = drone.num_dof
 
@@ -109,7 +118,7 @@ position = np.array([0.0, 0.0, 0.0], dtype=float)  # Start at 0.5m height
 
 
 
-# Velocity from ROS2 command
+# Velocity commands
 cmd_vel_x = 0.0
 cmd_vel_y = 0.0
 cmd_vel_z = 0.0  # m/s
@@ -119,10 +128,10 @@ roll = 0.0   # Rotation around X-axis (tilt left/right)
 pitch = 0.0  # Rotation around Y-axis (tilt forward/back)
 yaw = 0.0    # Rotation around Z-axis (spin left/right)
 
-# Angular velocities from ROS2 (rad/s)
-cmd_angular_x = 0.0  # Roll rate
-cmd_angular_y = 0.0  # Pitch rate
-cmd_angular_z = 0.0  # Yaw rate
+# Angular velocities (rad/s)
+cmd_angular_x = 0.0  # Roll
+cmd_angular_y = 0.0  # Pitch
+cmd_angular_z = 0.0  # Yaw
 
 dt = 1.0 / 60.0  # Time
 
@@ -162,9 +171,9 @@ def cmd_vel_callback(msg):
     cmd_vel_z = msg.linear.z
 
     # Angular velocities
-    cmd_angular_x = msg.angular.x  # Roll rate
-    cmd_angular_y = msg.angular.y  # Pitch rate
-    cmd_angular_z = msg.angular.z  # Yaw rate  
+    cmd_angular_x = msg.angular.x  # Roll 
+    cmd_angular_y = msg.angular.y  # Pitch 
+    cmd_angular_z = msg.angular.z  # Yaw   
 
     
 
@@ -172,7 +181,7 @@ def cmd_vel_callback(msg):
 # ros2 pub sub
 rclpy.init()
 ros_node = rclpy.create_node("drone_controller")
-pose_publisher = ros_node.create_publisher(PoseStamped, "/robot_pose", 10)
+pose_publisher = ros_node.create_publisher(PoseStamped, "/drone/pose", 10)
 cmd_vel_subscriber = ros_node.create_subscription(Twist, "/cmd_vel", cmd_vel_callback, 10)
 
 
@@ -189,9 +198,9 @@ while simulation_app.is_running():
     position[2] += cmd_vel_z * dt
 
     # Update orientation
-    roll += cmd_angular_x * dt   # Integrate roll
-    pitch += cmd_angular_y * dt  # Integrate pitch
-    yaw += cmd_angular_z * dt    # Integrate yaw
+    roll += cmd_angular_x * dt   # new roll
+    pitch += cmd_angular_y * dt  # new pitch
+    yaw += cmd_angular_z * dt    # new yaw
 
     # Floor limit
     if position[2] < 0.0:
