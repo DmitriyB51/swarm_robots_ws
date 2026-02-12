@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'ugv_swarm_path_planner'
+package_name = 'ugv_nav'
 
 setup(
     name=package_name,
@@ -10,6 +10,7 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        ('share/ugv_nav/launch', ['launch/ugv_navigation.launch.py']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -24,9 +25,6 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'ugv_astar_planner = ugv_swarm_path_planner.ugv_astar_planner:main',
-            'ugv_controller = ugv_swarm_path_planner.ugv_controller:main',
-            'astar_planner_fixed_pose = ugv_swarm_path_planner.astar_planner_fixed_pose:main',
         ],
     },
 )

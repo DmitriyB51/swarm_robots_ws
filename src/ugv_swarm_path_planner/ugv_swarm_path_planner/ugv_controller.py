@@ -14,9 +14,9 @@ class UGVController(Node):
         super().__init__('ugv_controller')
 
         # ---------------- parameters ----------------
-        self.lookahead_distance = 0.6     # meters
-        self.linear_speed = 0.4           # m/s
-        self.angular_gain = 0.3           # tuning parameter
+        self.lookahead_distance = 0.3    # meters
+        self.linear_speed = 0.2           # m/s
+        self.angular_gain = 0.1           # tuning parameter
         self.goal_tolerance = 0.3         # meters
 
         # ---------------- state ----------------
