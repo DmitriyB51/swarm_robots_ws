@@ -138,7 +138,7 @@ cmd_angular_x = 0.0  # Roll
 cmd_angular_y = 0.0  # Pitch
 cmd_angular_z = 0.0  # Yaw
 
-dt = 1.0 / 60.0  # Time
+last_time = time.time()
 
 
 
@@ -197,6 +197,11 @@ viewport = get_active_viewport()
 fps_print_time = time.time()
 
 while simulation_app.is_running():
+
+    # Compute actual dt
+    now = time.time()
+    dt = now - last_time
+    last_time = now
 
     # Update position
     position[0] += cmd_vel_x * dt

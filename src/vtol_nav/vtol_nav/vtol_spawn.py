@@ -15,6 +15,8 @@ from isaacsim.storage.native import get_assets_root_path
 from isaacsim.core.utils.extensions import enable_extension
 
 import os
+import time
+from pxr import PhysicsSchemaTools, Gf
 
 # ROS2
 import rclpy
@@ -40,6 +42,8 @@ if assets_root_path is None:
 
 my_world = World(stage_units_in_meters=1.0)
 my_world.scene.add_default_ground_plane()  # add ground plane
+
+
 set_camera_view(
     eye=[-7, 0.0, 7], target=[0.00, 0.00, 0.00], camera_prim_path="/OmniverseKit_Persp"
 )  # set camera view
@@ -108,8 +112,6 @@ drone.set_world_poses(positions=np.array([[0.0, 0, 0.0]]) / get_stage_units())
 # initialize the world
 my_world.reset()
 
-# Remove default SphereLight after world is initialized
-stage.RemovePrim("/World/defaultGroundPlane/SphereLight")
 
 num_dofs = drone.num_dof
 
@@ -133,7 +135,7 @@ cmd_angular_x = 0.0  # Roll
 cmd_angular_y = 0.0  # Pitch
 cmd_angular_z = 0.0  # Yaw
 
-dt = 1.0 / 60.0  # Time
+last_time = time.time()
 
 
 
@@ -190,7 +192,16 @@ cmd_vel_subscriber = ros_node.create_subscription(Twist, "/cmd_vel", cmd_vel_cal
 
 stage_units = get_stage_units()
 
+from omni.kit.viewport.utility import get_active_viewport
+viewport = get_active_viewport()
+fps_print_time = time.time()
+
 while simulation_app.is_running():
+
+    # Compute actual dt
+    now = time.time()
+    dt = now - last_time
+    last_time = now
 
     # Update position
     position[0] += cmd_vel_x * dt
@@ -214,6 +225,7 @@ while simulation_app.is_running():
     positions = (position / stage_units)[None, :]
     drone.set_world_poses(positions=positions, orientations=orientation)
 
+    
     # Spin propellers continuously (visual only)
     rotor_omega = base_spin_vel[:num_rotors]  # Constant speed
     rotor_angles += rotor_omega * dt  # Update angles
@@ -227,7 +239,7 @@ while simulation_app.is_running():
     joint_vel = np.zeros((1, num_dofs), dtype=np.float32)
     joint_vel[0, :num_rotors] = rotor_omega
     drone.set_joint_velocities(joint_vel)
-
+    
     my_world.step(render=True)
 
 
@@ -252,6 +264,11 @@ while simulation_app.is_running():
 
    
     rclpy.spin_once(ros_node, timeout_sec=0.0)
+
+    # Print simulation FPS once per second
+    if time.time() - fps_print_time >= 1.0:
+        print(f"SIM FPS: {viewport.fps:.1f}")
+        fps_print_time = time.time()
 
 
 ros_node.destroy_node()
