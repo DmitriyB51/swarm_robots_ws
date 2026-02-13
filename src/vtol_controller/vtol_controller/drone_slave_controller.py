@@ -1,3 +1,4 @@
+import math
 import rclpy
 from rclpy.node import Node
 
@@ -18,7 +19,7 @@ class PID:
     def reset(self):
         self.prev_error = 0.0
         self.integral = 0.0
-            
+
     def compute(self, error, dt):
         if dt <= 0.0:
             return 0.0
@@ -38,6 +39,18 @@ class PID:
             output = max(min(output, self.limit), -self.limit)
 
         return output
+
+
+
+def get_yaw_from_quaternion(q):
+   
+    siny_cosp = 2.0 * (q.w * q.z + q.x * q.y)
+    cosy_cosp = 1.0 - 2.0 * (q.y * q.y + q.z * q.z)
+    return math.atan2(siny_cosp, cosy_cosp)
+
+
+def wrap_angle(angle):
+    return math.atan2(math.sin(angle), math.cos(angle))
 
 
 class DroneSlaveController(Node):
@@ -63,10 +76,15 @@ class DroneSlaveController(Node):
         # publishers
         self.cmd_pub = self.create_publisher(Twist, '/cmd_vel', 10)
 
-        # PID
-        self.pid_x = PID(kp=0.8, ki=0, kd=0.1, limit=2.0)
-        self.pid_y = PID(kp=0.8, ki=0, kd=0.1, limit=2.0)
+
+        # Linear PIDs        
+        self.pid_forward = PID(kp=0.8, ki=0, kd=0.1, limit=2.0)
         self.pid_z = PID(kp=1.0, ki=0, kd=0.15, limit=2.0)
+
+
+        # Angular PID 
+       
+        self.pid_yaw = PID(kp=1.5, ki=0, kd=0.25, limit=1.0)
 
         self.goal_pose = None
         self.current_pose = None
@@ -91,25 +109,55 @@ class DroneSlaveController(Node):
         dt = (now - self.last_time).nanoseconds * 1e-9
         self.last_time = now
 
-        # Position errors
+  
         ex = self.goal_pose.pose.position.x - self.current_pose.pose.position.x
         ey = self.goal_pose.pose.position.y - self.current_pose.pose.position.y
         ez = self.goal_pose.pose.position.z - self.current_pose.pose.position.z
 
-        # PID output => velocity
-        vx = self.pid_x.compute(ex, dt)
-        vy = self.pid_y.compute(ey, dt)
+
+        distance = math.sqrt(ex * ex + ey * ey)
+
+        target_yaw = math.atan2(ey, ex)
+
+        current_yaw = get_yaw_from_quaternion(
+            self.current_pose.pose.orientation
+        )
+
+        yaw_error = wrap_angle(target_yaw - current_yaw)
+
+
+        forward_speed = self.pid_forward.compute(distance, dt)
+
+
+
+        if distance > 0.1:
+            yaw_rate = self.pid_yaw.compute(yaw_error, dt)
+        else:
+            yaw_rate = 0.0
+            self.pid_yaw.reset()
+
+
+
+
+        # Z PID: altitude error → vertical speed (unchanged)
         vz = self.pid_z.compute(ez, dt)
 
-        cmd = Twist()
-        cmd.linear.x = vx
-        cmd.linear.y = vy
-        cmd.linear.z = vz
+     
 
-        # TODO: Add yaw control
+
+
+        #body to word conversion
+        vx = forward_speed * math.cos(current_yaw)
+        vy = forward_speed * math.sin(current_yaw)
+
+        
+        cmd = Twist()
+        cmd.linear.x = vx      # world-frame X velocity
+        cmd.linear.y = vy      # world-frame Y velocity
+        cmd.linear.z = vz      # world-frame Z velocity (independent)
         cmd.angular.x = 0.0
         cmd.angular.y = 0.0
-        cmd.angular.z = 0.0
+        cmd.angular.z = yaw_rate  # rotation speed around Z (rad/s)
 
         self.cmd_pub.publish(cmd)
 
