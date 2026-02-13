@@ -64,9 +64,9 @@ class DroneSlaveController(Node):
         self.cmd_pub = self.create_publisher(Twist, '/cmd_vel', 10)
 
         # PID
-        self.pid_x = PID(kp=1.0, ki=0.01, kd=0.5, limit=2.0)
-        self.pid_y = PID(kp=1.0, ki=0.01, kd=0.5, limit=2.0)
-        self.pid_z = PID(kp=1.2, ki=0.01, kd=0.6, limit=1.5)
+        self.pid_x = PID(kp=0.8, ki=0, kd=0.1, limit=2.0)
+        self.pid_y = PID(kp=0.8, ki=0, kd=0.1, limit=2.0)
+        self.pid_z = PID(kp=1.0, ki=0, kd=0.15, limit=2.0)
 
         self.goal_pose = None
         self.current_pose = None
