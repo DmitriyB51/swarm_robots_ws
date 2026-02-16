@@ -83,20 +83,20 @@ class DroneSlaveController(Node):
         # subscribers
         self.goal_sub = self.create_subscription(
             PoseStamped,
-            '/goal_pose',
+            'goal_pose',
             self.goal_callback,
             10
         )
 
         self.pose_sub = self.create_subscription(
             PoseStamped,
-            '/drone/pose',
+            'pose',
             self.pose_callback,
             10
         )
 
         # publishers
-        self.cmd_pub = self.create_publisher(Twist, '/cmd_vel', 10)
+        self.cmd_pub = self.create_publisher(Twist, 'cmd_vel', 10)
 
 
         # Linear PIDs
