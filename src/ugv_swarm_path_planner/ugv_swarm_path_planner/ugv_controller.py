@@ -11,36 +11,49 @@ class UGVController(Node):
     def __init__(self):
         super().__init__('ugv_controller')
 
-        # ---------------- Parameters ----------------
-        self.lookahead_distance = 0.3
-        self.max_linear_speed = 0.15
-        self.max_angular_speed = 1.0
-        self.angular_gain = 3.5
-        self.goal_tolerance = 0.2
-        self.waypoint_tolerance = 0.15  # NEW
+        # Parameters
+        self.declare_parameter("lookahead_distance", 0.3)
+        self.declare_parameter("max_linear_speed", 0.15)
+        self.declare_parameter("max_angular_speed", 1.0)
+        self.declare_parameter("angular_gain", 3.5)
+        self.declare_parameter("goal_tolerance", 0.2)
+        self.declare_parameter("waypoint_tolerance", 0.15)
+
+        self.lookahead_distance = self.get_parameter(
+            "lookahead_distance").value
+        self.max_linear_speed = self.get_parameter(
+            "max_linear_speed").value
+        self.max_angular_speed = self.get_parameter(
+            "max_angular_speed").value
+        self.angular_gain = self.get_parameter(
+            "angular_gain").value
+        self.goal_tolerance = self.get_parameter(
+            "goal_tolerance").value
+        self.waypoint_tolerance = self.get_parameter(
+            "waypoint_tolerance").value
 
         self.current_pose = None
         self.path = []
 
-        # ---------------- Subscribers ----------------
+        # Subscribers
         self.odom_sub = self.create_subscription(
             Odometry,
-            '/odom',
+            'odom',
             self.odom_callback,
             10
         )
 
         self.path_sub = self.create_subscription(
             Path,
-            '/ugv/path',
+            'path',
             self.path_callback,
             10
         )
 
-        # ---------------- Publisher ----------------
+        # Publisher
         self.cmd_pub = self.create_publisher(
             Twist,
-            '/cmd_vel',
+            'cmd_vel',
             10
         )
 
@@ -48,16 +61,12 @@ class UGVController(Node):
 
         self.get_logger().info("UGV Controller started")
 
-    # ---------------- Callbacks ----------------
-
     def odom_callback(self, msg):
         self.current_pose = msg.pose.pose
 
     def path_callback(self, msg):
         self.path = list(msg.poses)
         self.get_logger().info(f"New path received ({len(self.path)} points)")
-
-    # ---------------- Control Loop ----------------
 
     def control_loop(self):
 
@@ -68,14 +77,12 @@ class UGVController(Node):
         ry = self.current_pose.position.y
         yaw = self.get_yaw(self.current_pose.orientation)
 
-        # 🔥 Prune path based on current position
         self.prune_path(rx, ry)
 
         if not self.path:
             self.stop_robot()
             return
 
-        # Goal check
         gx = self.path[-1].pose.position.x
         gy = self.path[-1].pose.position.y
         distance_to_goal = math.hypot(gx - rx, gy - ry)
@@ -111,16 +118,11 @@ class UGVController(Node):
 
         self.cmd_pub.publish(cmd)
 
-    # ---------------- Path Pruning ----------------
-
+    # Path Pruning
     def prune_path(self, rx, ry):
-        """
-        Remove waypoints that are already behind or within tolerance.
-        """
         while self.path:
             px = self.path[0].pose.position.x
             py = self.path[0].pose.position.y
-
             distance = math.hypot(px - rx, py - ry)
 
             if distance < self.waypoint_tolerance:
@@ -128,21 +130,16 @@ class UGVController(Node):
             else:
                 break
 
-    # ---------------- Helpers ----------------
-
     def find_lookahead_point(self, rx, ry):
         for pose in self.path:
             px = pose.pose.position.x
             py = pose.pose.position.y
-
             if math.hypot(px - rx, py - ry) >= self.lookahead_distance:
                 return (px, py)
-
         return None
 
     def stop_robot(self):
-        cmd = Twist()
-        self.cmd_pub.publish(cmd)
+        self.cmd_pub.publish(Twist())
 
     def get_yaw(self, q):
         siny_cosp = 2.0 * (q.w * q.z + q.x * q.y)

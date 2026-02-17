@@ -20,8 +20,6 @@ class AStarPlanner(Node):
         self.obstacle_inflation_radius = 3  # cells
         self.occ_threshold = 50
 
-        # ---------------- Subscribers ----------------
-
         self.map_sub = self.create_subscription(
             OccupancyGrid,
             '/map',
@@ -31,7 +29,7 @@ class AStarPlanner(Node):
 
         self.odom_sub = self.create_subscription(
             Odometry,
-            '/odom',
+            'odom',
             self.odom_callback,
             10
         )
@@ -43,11 +41,9 @@ class AStarPlanner(Node):
             10
         )
 
-        # ---------------- Publisher ----------------
-
         self.path_pub = self.create_publisher(
             Path,
-            '/ugv/path',
+            'path',
             10
         )
 
@@ -55,8 +51,6 @@ class AStarPlanner(Node):
         self.map_info = None
 
         self.get_logger().info("UGV A* Path Planner started (map-based)")
-
-    # ---------------- Callbacks ----------------
 
     def map_callback(self, msg: OccupancyGrid):
         self.map_info = msg.info
@@ -77,8 +71,7 @@ class AStarPlanner(Node):
         )
         self.plan_and_publish()
 
-    # ---------------- Planning ----------------
-
+    # Planning
     def plan_and_publish(self):
 
         if self.map is None:
@@ -105,8 +98,7 @@ class AStarPlanner(Node):
         self.path_pub.publish(path_msg)
         self.get_logger().info("Path published")
 
-    # ---------------- A* ----------------
-
+    # A*
     def a_star(self, grid, start, goal):
 
         h = lambda a, b: math.hypot(a[0] - b[0], a[1] - b[1])
@@ -151,8 +143,7 @@ class AStarPlanner(Node):
         path.reverse()
         return path
 
-    # ---------------- Map Utilities ----------------
-
+    # Map Utilities
     def inflate_obstacles(self, grid):
         inflated = np.copy(grid)
         obstacle_cells = np.where(grid > self.occ_threshold)
@@ -175,8 +166,6 @@ class AStarPlanner(Node):
             return False
         return grid[y, x] < self.occ_threshold
 
-    # ---------------- Smoothing ----------------
-
     def smooth_path(self, path):
         if len(path) < 3:
             return path
@@ -195,8 +184,7 @@ class AStarPlanner(Node):
         smooth.append(path[-1])
         return smooth
 
-    # ---------------- Conversions ----------------
-
+    # Conversions
     def world_to_grid(self, pos):
         x, y = pos
         gx = int((x - self.map_info.origin.position.x) /

@@ -33,6 +33,7 @@ def generate_launch_description():
         package="ugv_swarm_path_planner",
         executable="ugv_astar_planner",
         name="ugv_astar_planner",
+        namespace="ugv_1",
         output="screen"
     )
 
@@ -41,6 +42,7 @@ def generate_launch_description():
         package="ugv_swarm_path_planner",
         executable="ugv_controller",
         name="ugv_controller",
+        namespace="ugv_1",
         output="screen"
     )
 
