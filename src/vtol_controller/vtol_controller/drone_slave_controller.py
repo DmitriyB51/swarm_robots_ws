@@ -105,7 +105,7 @@ class DroneSlaveController(Node):
         self.pid_z = PID(kp=1.0, ki=0, kd=0.15, limit=2.0, max_rate=1.0)
 
         # Angular PIDs
-        self.pid_yaw = PID(kp=0.8, ki=0, kd=0.2, limit=1.0)
+        self.pid_yaw = PID(kp=1.5, ki=0, kd=0.2, limit=0.5, max_rate=0.5)
         self.pid_roll = PID(kp=3.0, ki=0, kd=0.5, limit=2.0)
         self.pid_pitch = PID(kp=3.0, ki=0, kd=0.5, limit=2.0)
 
