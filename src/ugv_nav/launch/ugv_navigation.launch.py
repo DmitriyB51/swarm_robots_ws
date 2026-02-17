@@ -3,21 +3,71 @@
 import os
 
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription
+from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument, OpaqueFunction
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
-
+from launch.substitutions import LaunchConfiguration
 from ament_index_python.packages import get_package_share_directory
+
+
+def launch_setup(context, *args, **kwargs):
+
+    num_ugvs = int(LaunchConfiguration('num_ugvs').perform(context))
+
+    nodes = []
+
+    for i in range(num_ugvs):
+        ugv_name = f"ugv_{i+1}"
+
+        nodes.append(
+            Node(
+                package="ugv_swarm_path_planner",
+                executable="ugv_astar_planner",
+                namespace=ugv_name,
+                name="ugv_astar_planner",
+                output="screen"
+            )
+        )
+
+        nodes.append(
+            Node(
+                package="ugv_swarm_path_planner",
+                executable="ugv_controller",
+                namespace=ugv_name,
+                name="ugv_controller",
+                output="screen"
+            )
+        )
+
+        nodes.append(
+            Node(
+                package="tf2_ros",
+                executable="static_transform_publisher",
+                name=f"{ugv_name}_map_to_odom_tf",
+                arguments=[
+                    "0", "0", "0",
+                    "0", "0", "0",
+                    "map",
+                    f"{ugv_name}/odom"
+                ],
+                output="screen"
+            )
+        )
+
+    return nodes
 
 
 def generate_launch_description():
 
-    # RViz Config Path
+    declare_num = DeclareLaunchArgument(
+        'num_ugvs',
+        default_value='3'
+    )
+
     rviz_config_path = os.path.expanduser(
         "~/swarm_robots_ws/src/ugv_nav/rviz/ugv_path_planning.rviz"
     )
 
-    # Map Provider Launch
     map_provider = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(
@@ -28,25 +78,6 @@ def generate_launch_description():
         )
     )
 
-    # Path Planner Node
-    path_planner = Node(
-        package="ugv_swarm_path_planner",
-        executable="ugv_astar_planner",
-        name="ugv_astar_planner",
-        namespace="ugv_1",
-        output="screen"
-    )
-
-    # UGV Controller Node
-    ugv_controller = Node(
-        package="ugv_swarm_path_planner",
-        executable="ugv_controller",
-        name="ugv_controller",
-        namespace="ugv_1",
-        output="screen"
-    )
-
-    # RViz2
     rviz2 = Node(
         package="rviz2",
         executable="rviz2",
@@ -56,8 +87,8 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
+        declare_num,
         map_provider,
-        path_planner,
-        ugv_controller,
+        OpaqueFunction(function=launch_setup),
         rviz2
     ])
