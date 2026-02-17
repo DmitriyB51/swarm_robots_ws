@@ -146,6 +146,13 @@ class DroneSlaveController(Node):
         vy = self.pid_y.compute(ey, dt)
         vz = self.pid_z.compute(ez, dt)
 
+        # Prevent going underground
+        min_z = 0.15
+        current_z = self.current_pose.pose.position.z
+        if current_z < min_z and vz < 0.0:
+            vz = 0.0
+            self.pid_z.reset()
+
         # Yaw control from goal orientation
         goal_yaw = get_yaw_from_quaternion(self.goal_pose.pose.orientation)
         current_yaw = get_yaw_from_quaternion(self.current_pose.pose.orientation)
