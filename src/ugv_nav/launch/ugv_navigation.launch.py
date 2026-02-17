@@ -12,12 +12,12 @@ from ament_index_python.packages import get_package_share_directory
 
 def generate_launch_description():
 
-    # === RViz Config Path ===
+    # RViz Config Path
     rviz_config_path = os.path.expanduser(
         "~/swarm_robots_ws/src/ugv_nav/rviz/ugv_path_planning.rviz"
     )
 
-    # === Map Provider Launch ===
+    # Map Provider Launch
     map_provider = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(
@@ -28,15 +28,23 @@ def generate_launch_description():
         )
     )
 
-    # === Path Planner Node ===
+    # Path Planner Node
     path_planner = Node(
         package="ugv_swarm_path_planner",
-        executable="astar_planner_fixed_pose",
-        name="astar_planner_fixed_pose",
+        executable="ugv_astar_planner",
+        name="ugv_astar_planner",
         output="screen"
     )
 
-    # === RViz2 ===
+    # UGV Controller Node
+    ugv_controller = Node(
+        package="ugv_swarm_path_planner",
+        executable="ugv_controller",
+        name="ugv_controller",
+        output="screen"
+    )
+
+    # RViz2
     rviz2 = Node(
         package="rviz2",
         executable="rviz2",
@@ -48,5 +56,6 @@ def generate_launch_description():
     return LaunchDescription([
         map_provider,
         path_planner,
+        ugv_controller,
         rviz2
     ])
