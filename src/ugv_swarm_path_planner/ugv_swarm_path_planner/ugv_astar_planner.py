@@ -5,7 +5,7 @@ import numpy as np
 import heapq
 import math
 
-from nav_msgs.msg import OccupancyGrid, Path
+from nav_msgs.msg import OccupancyGrid, Path, Odometry
 from geometry_msgs.msg import PoseStamped
 
 
@@ -20,7 +20,8 @@ class AStarPlanner(Node):
         self.obstacle_inflation_radius = 3  # cells
         self.occ_threshold = 50
 
-        # subscribers
+        # ---------------- Subscribers ----------------
+
         self.map_sub = self.create_subscription(
             OccupancyGrid,
             '/map',
@@ -28,10 +29,10 @@ class AStarPlanner(Node):
             10
         )
 
-        self.pose_sub = self.create_subscription(
-            PoseStamped,
-            '/ugv/pose',
-            self.pose_callback,
+        self.odom_sub = self.create_subscription(
+            Odometry,
+            '/odom',
+            self.odom_callback,
             10
         )
 
@@ -42,7 +43,8 @@ class AStarPlanner(Node):
             10
         )
 
-        # publisher
+        # ---------------- Publisher ----------------
+
         self.path_pub = self.create_publisher(
             Path,
             '/ugv/path',
@@ -52,9 +54,9 @@ class AStarPlanner(Node):
         self.map = None
         self.map_info = None
 
-        self.get_logger().info("UGV A* Path Planner (pose-based) started")
+        self.get_logger().info("UGV A* Path Planner started (map-based)")
 
-
+    # ---------------- Callbacks ----------------
 
     def map_callback(self, msg: OccupancyGrid):
         self.map_info = msg.info
@@ -62,10 +64,10 @@ class AStarPlanner(Node):
             (msg.info.height, msg.info.width)
         )
 
-    def pose_callback(self, msg: PoseStamped):
+    def odom_callback(self, msg: Odometry):
         self.start_world = (
-            msg.pose.position.x,
-            msg.pose.position.y
+            msg.pose.pose.position.x,
+            msg.pose.pose.position.y
         )
 
     def goal_callback(self, msg: PoseStamped):
@@ -75,25 +77,22 @@ class AStarPlanner(Node):
         )
         self.plan_and_publish()
 
+    # ---------------- Planning ----------------
 
     def plan_and_publish(self):
-        if self.map is None or self.map_info is None:
+
+        if self.map is None:
             self.get_logger().warn("Map not received yet")
             return
 
         if self.start_world is None:
-            self.get_logger().warn("Robot pose not received yet")
-            return
-
-        if self.goal_world is None:
-            self.get_logger().warn("Goal not received yet")
+            self.get_logger().warn("Odometry not received yet")
             return
 
         start = self.world_to_grid(self.start_world)
         goal = self.world_to_grid(self.goal_world)
 
         inflated_map = self.inflate_obstacles(self.map)
-
         path_cells = self.a_star(inflated_map, start, goal)
 
         if not path_cells:
@@ -106,10 +105,10 @@ class AStarPlanner(Node):
         self.path_pub.publish(path_msg)
         self.get_logger().info("Path published")
 
-
-    #  A* 
+    # ---------------- A* ----------------
 
     def a_star(self, grid, start, goal):
+
         h = lambda a, b: math.hypot(a[0] - b[0], a[1] - b[1])
 
         open_set = []
@@ -144,7 +143,6 @@ class AStarPlanner(Node):
 
         return []
 
-
     def reconstruct_path(self, came_from, current):
         path = [current]
         while current in came_from:
@@ -153,8 +151,7 @@ class AStarPlanner(Node):
         path.reverse()
         return path
 
-
-    #  map utils 
+    # ---------------- Map Utilities ----------------
 
     def inflate_obstacles(self, grid):
         inflated = np.copy(grid)
@@ -170,7 +167,6 @@ class AStarPlanner(Node):
                         inflated[ny, nx] = 100
         return inflated
 
-
     def is_valid(self, grid, cell):
         x, y = cell
         if x < 0 or y < 0:
@@ -179,8 +175,7 @@ class AStarPlanner(Node):
             return False
         return grid[y, x] < self.occ_threshold
 
-
-    #  smoothing 
+    # ---------------- Smoothing ----------------
 
     def smooth_path(self, path):
         if len(path) < 3:
@@ -200,23 +195,26 @@ class AStarPlanner(Node):
         smooth.append(path[-1])
         return smooth
 
-
-    #  conversions 
+    # ---------------- Conversions ----------------
 
     def world_to_grid(self, pos):
         x, y = pos
-        gx = int((x - self.map_info.origin.position.x) / self.map_info.resolution)
-        gy = int((y - self.map_info.origin.position.y) / self.map_info.resolution)
+        gx = int((x - self.map_info.origin.position.x) /
+                 self.map_info.resolution)
+        gy = int((y - self.map_info.origin.position.y) /
+                 self.map_info.resolution)
         return (gx, gy)
 
     def grid_to_world(self, cell):
         x, y = cell
-        wx = x * self.map_info.resolution + self.map_info.origin.position.x
-        wy = y * self.map_info.resolution + self.map_info.origin.position.y
+        wx = x * self.map_info.resolution + \
+             self.map_info.origin.position.x
+        wy = y * self.map_info.resolution + \
+             self.map_info.origin.position.y
         return (wx, wy)
 
-
     def cells_to_path(self, cells):
+
         path = Path()
         path.header.frame_id = "map"
         path.header.stamp = self.get_clock().now().to_msg()
