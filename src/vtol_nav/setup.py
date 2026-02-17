@@ -25,6 +25,7 @@ setup(
     entry_points={
         'console_scripts': [
             'hello_vtol = vtol_nav.hello_vtol:main',
+            'leader_follower = vtol_nav.leader_follower:main',
         ],
     },
 )
