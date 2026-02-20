@@ -1,0 +1,15 @@
+# Goal
+geometry_msgs/PoseStamped[] goal_poses
+float64 position_tolerance 0.5
+float64 waypoint_timeout 60.0
+---
+# Result
+bool success
+int32 waypoints_reached
+string message
+---
+# Feedback
+int32 current_waypoint_index
+int32 total_waypoints
+geometry_msgs/PoseStamped[] drone_poses
+float64 distance_to_waypoint
