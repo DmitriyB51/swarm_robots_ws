@@ -27,6 +27,7 @@ setup(
             'hello_vtol = vtol_nav.hello_vtol:main',
             'leader_follower = vtol_nav.leader_follower:main',
             'swarm_navigate_server = vtol_nav.swarm_navigate_server:main',
+            'swarm_navigate_client = vtol_nav.swarm_navigate_client:main',
             
         ],
     },
