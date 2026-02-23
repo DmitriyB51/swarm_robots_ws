@@ -1,6 +1,13 @@
+import math
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import PoseStamped
+
+
+def get_yaw_from_quaternion(q):
+    siny_cosp = 2.0 * (q.w * q.z + q.x * q.y)
+    cosy_cosp = 1.0 - 2.0 * (q.y * q.y + q.z * q.z)
+    return math.atan2(siny_cosp, cosy_cosp)
 
 
 class LeaderFollower(Node):
@@ -20,30 +27,28 @@ class LeaderFollower(Node):
         self.goal_pub_2 = self.create_publisher(PoseStamped, '/vtol_2/goal_pose', 10)
         self.goal_pub_3 = self.create_publisher(PoseStamped, '/vtol_3/goal_pose', 10)
 
-        # Offsets from leader (x, y, z)
-        self.offset_2 = (-3.0, -2.0, 0.0)  # behind-left
-        self.offset_3 = (-3.0,  2.0, 0.0)  # behind-right
+        
+        self.offset_2 = (-3.0, -2.0, 0.0)  # behind-right
+        self.offset_3 = (-3.0,  2.0, 0.0)  # behind-left
 
         self.get_logger().info('Leader-follower node started')
 
     def leader_callback(self, msg):
-        # vtol_2 goal
-        goal_2 = PoseStamped()
-        goal_2.header = msg.header
-        goal_2.pose.position.x = msg.pose.position.x + self.offset_2[0]
-        goal_2.pose.position.y = msg.pose.position.y + self.offset_2[1]
-        goal_2.pose.position.z = msg.pose.position.z + self.offset_2[2]
-        goal_2.pose.orientation = msg.pose.orientation
-        self.goal_pub_2.publish(goal_2)
+        yaw = get_yaw_from_quaternion(msg.pose.orientation)
 
-        # vtol_3 goal
-        goal_3 = PoseStamped()
-        goal_3.header = msg.header
-        goal_3.pose.position.x = msg.pose.position.x + self.offset_3[0]
-        goal_3.pose.position.y = msg.pose.position.y + self.offset_3[1]
-        goal_3.pose.position.z = msg.pose.position.z + self.offset_3[2]
-        goal_3.pose.orientation = msg.pose.orientation
-        self.goal_pub_3.publish(goal_3)
+        # Rotate body-frame offsets to world frame
+        for offset, pub in [(self.offset_2, self.goal_pub_2),
+                            (self.offset_3, self.goal_pub_3)]:
+            dx_world = offset[0] * math.cos(yaw) - offset[1] * math.sin(yaw)
+            dy_world = offset[0] * math.sin(yaw) + offset[1] * math.cos(yaw)
+
+            goal = PoseStamped()
+            goal.header = msg.header
+            goal.pose.position.x = msg.pose.position.x + dx_world
+            goal.pose.position.y = msg.pose.position.y + dy_world
+            goal.pose.position.z = msg.pose.position.z + offset[2]
+            goal.pose.orientation = msg.pose.orientation
+            pub.publish(goal)
 
 
 def main(args=None):

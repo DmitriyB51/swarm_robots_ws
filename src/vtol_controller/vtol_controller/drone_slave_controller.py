@@ -99,13 +99,13 @@ class DroneSlaveController(Node):
         self.cmd_pub = self.create_publisher(Twist, 'cmd_vel', 10)
 
 
-        # Linear PIDs
-        self.pid_forward = PID(kp=0.8, ki=0, kd=0.1, limit=2.0, max_rate=1.0)
+        # Position PIDs (world-frame, same as roi_drones)
+        self.pid_x = PID(kp=0.8, ki=0, kd=0.1, limit=2.0, max_rate=1.0)
+        self.pid_y = PID(kp=0.8, ki=0, kd=0.1, limit=2.0, max_rate=1.0)
         self.pid_z = PID(kp=1.0, ki=0, kd=0.15, limit=2.0, max_rate=1.0)
 
-
         # Angular PIDs
-        self.pid_yaw = PID(kp=0.8, ki=0, kd=0.2, limit=1.0)
+        self.pid_yaw = PID(kp=1.5, ki=0, kd=0.2, limit=0.5, max_rate=0.5)
         self.pid_roll = PID(kp=3.0, ki=0, kd=0.5, limit=2.0)
         self.pid_pitch = PID(kp=3.0, ki=0, kd=0.5, limit=2.0)
 
@@ -136,76 +136,49 @@ class DroneSlaveController(Node):
         dt = (now - self.last_time).nanoseconds * 1e-9
         self.last_time = now
 
-  
+        # Position errors
         ex = self.goal_pose.pose.position.x - self.current_pose.pose.position.x
         ey = self.goal_pose.pose.position.y - self.current_pose.pose.position.y
         ez = self.goal_pose.pose.position.z - self.current_pose.pose.position.z
 
-
-        distance = math.sqrt(ex * ex + ey * ey)
-
-        target_yaw = math.atan2(ey, ex)
-
-        current_yaw = get_yaw_from_quaternion(
-            self.current_pose.pose.orientation
-        )
-
-        yaw_error = wrap_angle(target_yaw - current_yaw)
-
-
-        if distance > 0.1:
-            forward_speed = self.pid_forward.compute(distance, dt)
-            yaw_rate = self.pid_yaw.compute(yaw_error, dt)
-
-            alignment = max(0.0, math.cos(yaw_error))
-            forward_speed *= alignment
-        else:
-            forward_speed = 0.0
-            yaw_rate = 0.0
-            self.pid_forward.reset()
-            self.pid_yaw.reset()
-
-
-
-
-        # Z velocity
+        # Position control (world-frame, separate X/Y/Z)
+        vx = self.pid_x.compute(ex, dt)
+        vy = self.pid_y.compute(ey, dt)
         vz = self.pid_z.compute(ez, dt)
 
-     
+        # Prevent going underground
+        min_z = 0.15
+        current_z = self.current_pose.pose.position.z
+        if current_z < min_z and vz < 0.0:
+            vz = 0.0
+            self.pid_z.reset()
 
+        # Yaw control from goal orientation
+        goal_yaw = get_yaw_from_quaternion(self.goal_pose.pose.orientation)
+        current_yaw = get_yaw_from_quaternion(self.current_pose.pose.orientation)
+        yaw_error = wrap_angle(goal_yaw - current_yaw)
+        yaw_rate = self.pid_yaw.compute(yaw_error, dt)
 
+        # Convert world velocity to body-frame for tilt compensation
+        front_vel = vx * math.cos(goal_yaw) + vy * math.sin(goal_yaw)
+        side_vel = -vx * math.sin(goal_yaw) + vy * math.cos(goal_yaw)
 
-        # Body to world conversion
-        vx = forward_speed * math.cos(current_yaw)
-        vy = forward_speed * math.sin(current_yaw)
-
-        
-        # Convert world velocity to body-frame 
-        front_vel = vx * math.cos(current_yaw) + vy * math.sin(current_yaw)
-        side_vel = -vx * math.sin(current_yaw) + vy * math.cos(current_yaw)
-
-     
         desired_pitch = -self.tilt_factor * front_vel
         desired_roll = self.tilt_factor * side_vel
 
-        
         current_roll = get_roll_from_quaternion(self.current_pose.pose.orientation)
         current_pitch = get_pitch_from_quaternion(self.current_pose.pose.orientation)
 
-        
         roll_rate = self.pid_roll.compute(desired_roll - current_roll, dt)
         pitch_rate = self.pid_pitch.compute(desired_pitch - current_pitch, dt)
 
-
-
-
         cmd = Twist()
-        cmd.linear.x = vx       # world-frame X velocity
-        cmd.linear.y = vy       # world-frame Y velocity
-        cmd.linear.z = vz       # world-frame Z velocity 
-        cmd.angular.x = roll_rate    # roll rate (rad/s)
-        cmd.angular.y = pitch_rate   # pitch rate (rad/s)
-        cmd.angular.z = yaw_rate     # yaw rate (rad/s)
+        cmd.linear.x = vx
+        cmd.linear.y = vy
+        cmd.linear.z = vz
+        cmd.angular.x = roll_rate
+        cmd.angular.y = pitch_rate
+        cmd.angular.z = yaw_rate
 
         self.cmd_pub.publish(cmd)
 
