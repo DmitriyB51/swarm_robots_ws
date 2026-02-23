@@ -1,4 +1,6 @@
 from setuptools import find_packages, setup
+import os
+from glob import glob
 
 package_name = 'vtol_nav'
 
@@ -10,6 +12,7 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        (os.path.join('share', package_name, 'launch'), glob('launch/*.launch.py')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -28,6 +31,9 @@ setup(
             'leader_follower = vtol_nav.leader_follower:main',
             'swarm_navigate_server = vtol_nav.swarm_navigate_server:main',
             'swarm_navigate_client = vtol_nav.swarm_navigate_client:main',
+            'leader_follower_server = vtol_nav.leader_follower_server:main',
+            'vtol_navigate_server = vtol_nav.vtol_navigate_server:main',
+            'mission_action_client = vtol_nav.mission_action_client:main',
             
         ],
     },

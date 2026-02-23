@@ -1,0 +1,15 @@
+# Goal - navigate leader drone while followers track it
+string leader_drone_name
+string[] follower_drone_names
+geometry_msgs/PoseStamped goal_pose
+float64 position_tolerance 0.5
+float64 waypoint_timeout 60.0
+---
+# Result
+bool success
+string message
+---
+# Feedback
+geometry_msgs/PoseStamped leader_pose
+geometry_msgs/PoseStamped[] follower_poses
+float64 distance_to_goal

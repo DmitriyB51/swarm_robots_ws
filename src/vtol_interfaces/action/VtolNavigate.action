@@ -1,0 +1,13 @@
+# Goal
+string drone_name
+geometry_msgs/PoseStamped goal_pose
+float64 position_tolerance 0.5
+float64 waypoint_timeout 60.0
+---
+# Result
+bool success
+string message
+---
+# Feedback
+geometry_msgs/PoseStamped current_pose
+float64 distance_to_goal
