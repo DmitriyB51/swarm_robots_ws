@@ -34,6 +34,7 @@ setup(
             'leader_follower_server = vtol_nav.leader_follower_server:main',
             'vtol_navigate_server = vtol_nav.vtol_navigate_server:main',
             'mission_action_client = vtol_nav.mission_action_client:main',
+            'spiral_search_node = vtol_nav.spiral_search_node:main',
             
         ],
     },

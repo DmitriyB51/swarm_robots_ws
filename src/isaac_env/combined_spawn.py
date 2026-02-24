@@ -78,9 +78,9 @@ class CombinedSwarmManager:
 
         # Drone configs: (name, [x, y, z])
         drone_configs = [
-            ("vtol_1", [0.0, 0.0, 5.0]),
-            ("vtol_2", [3.0, 0.0, 5.0]),
-            ("vtol_3", [6.0, 0.0, 5.0]),
+            ("vtol_1", [-30.0, 30.0, 9.0]),
+            ("vtol_2", [-33.0, 35.0, 7.0]),
+            ("vtol_3", [-33.0, 25.0, 5.0]),
         ]
 
         # UGV configs: (name, [x, y, z], [qx, qy, qz, qw])
