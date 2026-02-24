@@ -254,7 +254,7 @@ simulation_app.update()
 
 class UGVInstance:
 
-    def __init__(self, world, ros_node, name, initial_pose):
+    def __init__(self, world, ros_node, name, initial_position, initial_orientation):
 
         self.name = name
         self.namespace = f"/{name}"
@@ -277,13 +277,22 @@ class UGVInstance:
         prim = stage.GetPrimAtPath(self.prim_path)
         xform = UsdGeom.Xformable(prim)
 
-        transform = Gf.Matrix4d().SetTranslate(
-            Gf.Vec3d(
-                float(initial_pose[0]),
-                float(initial_pose[1]),
-                float(initial_pose[2])
-            )
+        # Create rotation from quaternion (Gf.Quatd takes real part first: w, x, y, z)
+        quat = Gf.Quatd(
+            float(initial_orientation[3]),  # w (real part)
+            float(initial_orientation[0]),  # x
+            float(initial_orientation[1]),  # y
+            float(initial_orientation[2])   # z
         )
+        rotation = Gf.Rotation(quat)
+
+        # Create the transform matrix with rotation and translation
+        transform = Gf.Matrix4d()
+        transform.SetTransform(rotation, Gf.Vec3d(
+            float(initial_position[0]),
+            float(initial_position[1]),
+            float(initial_position[2])
+        ))
 
         xform.AddTransformOp().Set(transform)
 
@@ -387,15 +396,16 @@ class UGVSwarmManager:
         rclpy.init()
         self.ros_node = rclpy.create_node("ugv_swarm_controller")
 
+        # Robot configs: (name, [x, y, z], [qx, qy, qz, qw])
         robot_configs = [
-            ("ugv_1", [0.00, -17.0, 0.05]),
-            ("ugv_2", [17, 0.00, 0.05]),
-            ("ugv_3", [-17, 0.00, 0.05]),
+            ("ugv_1", [-1.0795470476150513, -18.356243133544922, 0.05], [0.0, 0.0, 0.7239233431599225, 0.6898804195135279]),
+            ("ugv_2", [15.534133911132812, -0.7533082962036133, 0.05], [0.0, 0.0, -0.9999898369146042, 0.004508444022421742]),
+            ("ugv_3", [-17.56472396850586, -0.7498464584350586, 0.05], [0.0, 0.0, 0.021339575169731635, 0.9997722853388042]),
         ]
 
         self.robots = [
-            UGVInstance(self.world, self.ros_node, name, pose)
-            for name, pose in robot_configs
+            UGVInstance(self.world, self.ros_node, name, position, orientation)
+            for name, position, orientation in robot_configs
         ]
 
         self.world.reset()

@@ -1,58 +1,16 @@
-from isaacsim import SimulationApp
-simulation_app = SimulationApp({"headless": False})
-
-import sys
-import os
-import time
+# Drone Instance class - import after SimulationApp is created
 import numpy as np
-import carb
 
-from isaacsim.core.api import World
+from pxr import UsdPhysics, Usd
+
 from isaacsim.core.prims import Articulation
 from isaacsim.core.utils.stage import add_reference_to_stage, get_stage_units
-from isaacsim.core.utils.viewports import set_camera_view
-from isaacsim.storage.native import get_assets_root_path
-from isaacsim.core.utils.extensions import enable_extension
 
-from pxr import UsdPhysics, Usd, UsdLux
-
-import rclpy
 from geometry_msgs.msg import PoseStamped, Twist
 
 
-enable_extension("isaacsim.asset.importer.urdf")
-enable_extension("omni.physx.supportui")
-enable_extension("omni.physx.ui")
-simulation_app.update()
-
-
-# world setup
-assets_root_path = get_assets_root_path()
-if assets_root_path is None:
-    carb.log_error("Could not find Isaac Sim assets folder")
-    simulation_app.close()
-    sys.exit()
-
-my_world = World(stage_units_in_meters=1.0)
-my_world.scene.add_default_ground_plane()
-
-set_camera_view(
-    eye=[-10, 0.0, 10],
-    target=[0.0, 0.0, 0.0],
-    camera_prim_path="/OmniverseKit_Persp"
-)
-
-stage = my_world.stage
-
-dome_light = UsdLux.DomeLight.Define(stage, "/World/DomeLight")
-dome_light.CreateIntensityAttr(500)
-
-asset_path = os.path.expanduser(
-    "~/swarm_robots_ws/src/vtol_dron_description/urdf/vtol_simple/vtol_simple.usd"
-)
-
-
 def euler_to_quat(roll, pitch, yaw):
+    """Convert Euler angles to quaternion (w, x, y, z)."""
     cr, sr = np.cos(roll/2), np.sin(roll/2)
     cp, sp = np.cos(pitch/2), np.sin(pitch/2)
     cy, sy = np.cos(yaw/2), np.sin(yaw/2)
@@ -64,16 +22,16 @@ def euler_to_quat(roll, pitch, yaw):
     return qw, qx, qy, qz
 
 
-
-# drone spawn class
 class DroneInstance:
+    """VTOL Drone instance with kinematic control."""
 
-    def __init__(self, world, ros_node, name, index, asset_path):
+    def __init__(self, world, ros_node, name, initial_position, asset_path, stage):
 
         self.name = name
         self.namespace = f"/{name}"
+        self.stage = stage
 
-        self.position = np.array([index * 3.0, 0.0, 5.0], dtype=float)
+        self.position = np.array(initial_position, dtype=float)
         self.roll = 0.0
         self.pitch = 0.0
         self.yaw = 0.0
@@ -97,7 +55,7 @@ class DroneInstance:
             rigid_body = UsdPhysics.RigidBodyAPI(prim)
             rigid_body.CreateKinematicEnabledAttr(True)
 
-        # Apply DriveAPI 
+        # Apply DriveAPI for propellers
         for p in Usd.PrimRange(prim):
             if p.IsA(UsdPhysics.RevoluteJoint):
                 drive = UsdPhysics.DriveAPI.Apply(p, "angular")
@@ -105,7 +63,6 @@ class DroneInstance:
                 drive.CreateStiffnessAttr(0.0)
                 drive.CreateDampingAttr(1e2)
                 drive.CreateMaxForceAttr(1e6)
-
 
         self.pose_pub = ros_node.create_publisher(
             PoseStamped,
@@ -125,10 +82,8 @@ class DroneInstance:
         self.base_spin_vel = None
         self.rotor_angles = None
 
-
-    # reset
     def initialize_after_reset(self):
-
+        """Initialize drone state after world reset."""
         self.num_dofs = self.articulation.num_dof
         self.num_rotors = min(4, self.num_dofs)
 
@@ -146,18 +101,17 @@ class DroneInstance:
             positions=np.array([self.position]) / get_stage_units()
         )
 
-
     def cmd_callback(self, msg):
         self.cmd_vel[:] = [msg.linear.x, msg.linear.y, msg.linear.z]
         self.cmd_ang[:] = [msg.angular.x, msg.angular.y, msg.angular.z]
 
     def update(self, dt, stage_units):
-
+        """Update drone position and propeller animation."""
         # Update pose
         self.position += self.cmd_vel * dt
-        self.roll  += self.cmd_ang[0] * dt
+        self.roll += self.cmd_ang[0] * dt
         self.pitch += self.cmd_ang[1] * dt
-        self.yaw   += self.cmd_ang[2] * dt
+        self.yaw += self.cmd_ang[2] * dt
 
         qw, qx, qy, qz = euler_to_quat(self.roll, self.pitch, self.yaw)
         orientation = np.array([[qw, qx, qy, qz]], dtype=np.float32)
@@ -168,8 +122,7 @@ class DroneInstance:
             orientations=orientation
         )
 
-
-        # propeller spinning viz effect
+        # Propeller spinning visualization
         rotor_omega = self.base_spin_vel[:self.num_rotors]
         self.rotor_angles += rotor_omega * dt
         self.rotor_angles = (self.rotor_angles + np.pi) % (2*np.pi) - np.pi
@@ -182,9 +135,8 @@ class DroneInstance:
         joint_vel[0, :self.num_rotors] = rotor_omega
         self.articulation.set_joint_velocities(joint_vel)
 
-
-    # pub pose
     def publish_pose(self, ros_node):
+        """Publish drone pose."""
         pos, ori = self.articulation.get_world_poses()
 
         msg = PoseStamped()
@@ -200,52 +152,3 @@ class DroneInstance:
         msg.pose.orientation.z = float(ori[0][3])
 
         self.pose_pub.publish(msg)
-
-
-
-rclpy.init()
-ros_node = rclpy.create_node("swarm_controller")
-
-NUM_DRONES = 3
-drones = []
-
-for i in range(NUM_DRONES):
-    drones.append(
-        DroneInstance(
-            my_world,
-            ros_node,
-            f"vtol_{i+1}",
-            i,
-            asset_path
-        )
-    )
-
-my_world.reset()
-
-for drone in drones:
-    drone.initialize_after_reset()
-
-stage_units = get_stage_units()
-last_time = time.time()
-
-
-while simulation_app.is_running():
-
-    now = time.time()
-    dt = now - last_time
-    last_time = now
-
-    for drone in drones:
-        drone.update(dt, stage_units)
-
-    my_world.step(render=True)
-
-    for drone in drones:
-        drone.publish_pose(ros_node)
-
-    rclpy.spin_once(ros_node, timeout_sec=0.0)
-
-
-ros_node.destroy_node()
-rclpy.shutdown()
-simulation_app.close()
