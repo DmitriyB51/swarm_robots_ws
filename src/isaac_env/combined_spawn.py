@@ -45,7 +45,7 @@ class CombinedSwarmManager:
         self.stage = self.world.stage
 
         # Load environment
-        env_usd_path = "/home/qasob/swarm_robots_ws/src/robots/scene/maze_small_with_ground.usd"
+        env_usd_path = os.path.expanduser("~/swarm_robots_ws/src/robots/scene/maze_small_with_ground.usd")
         if os.path.exists(env_usd_path):
             add_reference_to_stage(env_usd_path, "/World/Environment")
             # Apply 180 degree rotation around Z-axis to match ugv_spawn orientation
