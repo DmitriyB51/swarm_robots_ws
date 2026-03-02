@@ -59,6 +59,9 @@ class UGVInstance:
 
         xform.AddTransformOp().Set(transform)
 
+        scale = 5.0  # increase to make UGVs bigger
+        xform.AddScaleOp().Set(Gf.Vec3f(scale, scale, scale))
+
         self.robot = world.scene.add(
             Articulation(self.prim_path, name=name)
         )
