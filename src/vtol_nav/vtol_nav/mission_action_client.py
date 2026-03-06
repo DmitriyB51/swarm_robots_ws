@@ -68,28 +68,20 @@ class MissionActionClient(Node):
             callback_group=self.cb_group
         )
 
-        # Spiral search parameters
+        # Block search parameters
         self.detection_radius = 3.0   # meters - how close drone must be to "detect" target
         self.flight_altitude = 5.0    # meters - altitude for search
-        
-        # Spiral parameters (around origin)
-        self.spiral_start_radius = 25.0  # meters - starting radius from origin
-        self.spiral_end_radius = 2.0     # meters - minimum radius
-        self.radius_decrement = 3.0      # meters - decrease per full rotation
-        self.points_per_rotation = 12    # waypoints per full circle
-        
-        # Origin for spiral search
-        self.origin_x = 0.0
-        self.origin_y = 0.0
+        self.row_spacing = 3.0        # meters between zigzag rows
+        self.wp_spacing = 2.0         # meters between waypoints along a row
 
         # Map file path
         self.map_yaml_path = os.path.expanduser(
             '~/swarm_robots_ws/src/map_provider/maps/updated_maze_map.yaml'
         )
 
-        # Fixed target point
-        self.fixed_target_x = 4.0
-        self.fixed_target_y = 3.0
+        # Fixed target point (far corner of top strip to maximize search time)
+        self.fixed_target_x = 13.0
+        self.fixed_target_y = 14.0
 
         # Spiral search state
         self.map_data = None
@@ -280,12 +272,12 @@ class MissionActionClient(Node):
         self.get_logger().info('Waiting 3 seconds before proceeding to Phase 5...')
         time.sleep(3.0)
 
-        # === Phase 5: Spiral Search ===
+        # === Phase 5: Block Search ===
         self.get_logger().info('')
-        self.get_logger().info('=== Phase 5: Spiral Search for Random Target ===')
-        success = self._execute_spiral_search()
+        self.get_logger().info('=== Phase 5: Block Search for Random Target ===')
+        success = self._execute_block_search()
         if not success:
-            self.get_logger().error('Phase 5 (Spiral Search) failed')
+            self.get_logger().error('Phase 5 (Block Search) failed')
             # Not aborting mission, just noting the failure
 
         self.get_logger().info('')
@@ -485,33 +477,60 @@ class MissionActionClient(Node):
         """Calculate 2D distance."""
         return math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
 
-    def _generate_circular_spiral_waypoints(self) -> list:
-        """
-        Generate circular spiral waypoints around origin.
-        Starts from outer radius and makes circular rotations,
-        each rotation bringing drones closer to the origin.
-        """
-        waypoints = []
-        current_radius = self.spiral_start_radius
-        angular_step = (2 * math.pi) / self.points_per_rotation
-        
-        while current_radius >= self.spiral_end_radius:
-            # Generate one complete rotation at this radius
-            for i in range(self.points_per_rotation):
-                angle = i * angular_step
-                wp_x = self.origin_x + current_radius * math.cos(angle)
-                wp_y = self.origin_y + current_radius * math.sin(angle)
-                
-                # Only add if not obstacle
-                if not self._is_obstacle(wp_x, wp_y):
-                    waypoints.append((wp_x, wp_y))
-            
-            # Decrease radius for next rotation (move closer to origin)
-            current_radius -= self.radius_decrement
-        
+    def _compute_search_bounds(self):
+        """Compute search bounds from free cells bounding box, inset by 2m to stay inside walls."""
+        if self.map_data is None:
+            return None
+
+        free_cells = np.argwhere(self.map_data == 0)
+        if len(free_cells) == 0:
+            return None
+
+        # free_cells is (row, col) i.e. (grid_y, grid_x)
+        grid_y_min = free_cells[:, 0].min()
+        grid_y_max = free_cells[:, 0].max()
+        grid_x_min = free_cells[:, 1].min()
+        grid_x_max = free_cells[:, 1].max()
+
+        # Convert to world coords
+        world_x_min = self.map_origin_x + grid_x_min * self.map_resolution
+        world_x_max = self.map_origin_x + grid_x_max * self.map_resolution
+        world_y_min = self.map_origin_y + grid_y_min * self.map_resolution
+        world_y_max = self.map_origin_y + grid_y_max * self.map_resolution
+
+        # Small inset to stay just inside the outer perimeter
+        margin = 0.5
+        x_min = world_x_min + margin
+        x_max = world_x_max - margin
+        y_min = world_y_min + margin
+        y_max = world_y_max - margin
+
         self.get_logger().info(
-            f'Generated {len(waypoints)} circular spiral waypoints around origin'
+            f'Search bounds: X [{x_min:.1f}, {x_max:.1f}], Y [{y_min:.1f}, {y_max:.1f}]'
         )
+        return (x_min, x_max, y_min, y_max)
+
+    def _generate_lawnmower_waypoints(self, x_min, x_max, y_min, y_max):
+        """Generate lawnmower/zigzag waypoints for a rectangular strip.
+        No obstacle filtering — drones fly at altitude above maze walls."""
+        waypoints = []
+        y = y_min
+        row = 0
+
+        while y <= y_max:
+            if row % 2 == 0:
+                x = x_min
+                while x <= x_max:
+                    waypoints.append((x, y))
+                    x += self.wp_spacing
+            else:
+                x = x_max
+                while x >= x_min:
+                    waypoints.append((x, y))
+                    x -= self.wp_spacing
+            y += self.row_spacing
+            row += 1
+
         return waypoints
 
     def _check_target_detected(self, drone_name: str) -> bool:
@@ -539,14 +558,14 @@ class MissionActionClient(Node):
         pose = make_pose(x, y, z)
         self.goal_publishers[drone_name].publish(pose)
 
-    def _execute_spiral_search(self) -> bool:
+    def _execute_block_search(self) -> bool:
         """
-        Execute circular spiral search around the origin.
-        All drones follow the same circular pattern, getting closer each rotation.
+        Execute block search — divide map into 3 horizontal strips,
+        each drone sweeps its strip with a lawnmower/zigzag pattern.
         """
         # Check if map was loaded successfully
         if self.map_data is None:
-            self.get_logger().error('No map loaded - cannot execute spiral search')
+            self.get_logger().error('No map loaded - cannot execute block search')
             return False
 
         # Wait for drone poses
@@ -567,46 +586,57 @@ class MissionActionClient(Node):
         self.target_point = (target_x, target_y)
         self.get_logger().info(f'Target set at ({target_x:.2f}, {target_y:.2f})')
 
-        # Generate circular spiral waypoints around origin
-        waypoints = self._generate_circular_spiral_waypoints()
-        
-        if len(waypoints) == 0:
-            self.get_logger().error('No waypoints generated')
+        # Compute search bounds from map
+        bounds = self._compute_search_bounds()
+        if bounds is None:
+            self.get_logger().error('Could not compute search bounds')
             return False
 
-        # Assign initial angular offsets for each drone (spread them around the circle)
-        drone_angle_offsets = {}
-        angle_spread = (2 * math.pi) / len(self.all_drone_names)
+        x_min, x_max, y_min, y_max = bounds
+
+        # Divide Y range into 3 equal horizontal strips
+        y_range = y_max - y_min
+        strip_height = y_range / 3.0
+
+        strip_assignments = {}
         for i, drone_name in enumerate(self.all_drone_names):
-            drone_angle_offsets[drone_name] = i * angle_spread
-
-        self.get_logger().info('=== Starting Circular Spiral Search Around Origin ===')
-        self.get_logger().info(f'Searching with {len(waypoints)} waypoints')
-
-        waypoint_idx = 0
-        
-        while not self.target_found and waypoint_idx < len(waypoints):
-            wp_x, wp_y = waypoints[waypoint_idx]
-            current_radius = self._distance_2d(self.origin_x, self.origin_y, wp_x, wp_y)
-            current_angle = math.atan2(wp_y - self.origin_y, wp_x - self.origin_x)
-            
+            strip_y_min = y_min + i * strip_height
+            strip_y_max = y_min + (i + 1) * strip_height
+            strip_assignments[drone_name] = (strip_y_min, strip_y_max)
             self.get_logger().info(
-                f'Rotation waypoint {waypoint_idx + 1}/{len(waypoints)} - '
-                f'radius: {current_radius:.1f}m'
+                f'{drone_name} assigned strip: Y [{strip_y_min:.1f}, {strip_y_max:.1f}]'
             )
 
-            # Move each drone to its position on the circle (with angular offset)
+        # Generate lawnmower waypoints for each drone's strip
+        drone_waypoints = {}
+        for drone_name in self.all_drone_names:
+            sy_min, sy_max = strip_assignments[drone_name]
+            wps = self._generate_lawnmower_waypoints(x_min, x_max, sy_min, sy_max)
+            drone_waypoints[drone_name] = wps
+            self.get_logger().info(
+                f'{drone_name}: {len(wps)} waypoints generated'
+            )
+
+        self.get_logger().info('=== Starting Block Search ===')
+
+        # Track waypoint index per drone
+        drone_wp_idx = {name: 0 for name in self.all_drone_names}
+
+        while not self.target_found:
             for drone_name in self.all_drone_names:
-                if drone_name not in self.drone_poses:
+                wps = drone_waypoints[drone_name]
+                if len(wps) == 0:
                     continue
-                    
-                # Calculate this drone's position with offset
-                drone_angle = current_angle + drone_angle_offsets[drone_name]
-                drone_wp_x = self.origin_x + current_radius * math.cos(drone_angle)
-                drone_wp_y = self.origin_y + current_radius * math.sin(drone_angle)
-                
-                # Navigate drone
-                self._navigate_drone_to(drone_name, drone_wp_x, drone_wp_y, self.flight_altitude)
+                idx = drone_wp_idx[drone_name]
+
+                # Wrap around to keep searching
+                if idx >= len(wps):
+                    drone_wp_idx[drone_name] = 0
+                    idx = 0
+
+                wp_x, wp_y = wps[idx]
+                self._navigate_drone_to(drone_name, wp_x, wp_y, self.flight_altitude)
+                drone_wp_idx[drone_name] = idx + 1
 
             # Wait for drones to move towards waypoint
             time.sleep(1.0)
@@ -619,18 +649,9 @@ class MissionActionClient(Node):
                     self.get_logger().info(f'*** TARGET FOUND by {drone_name}! ***')
                     break
 
-            if not self.target_found:
-                waypoint_idx += 1
-
-        # If spiral completed without finding, go directly to target
-        if not self.target_found:
-            self.get_logger().warn('Spiral search completed without finding target - going directly')
-            self.target_found = True
-            self.finder_drone = self.all_drone_names[0]
-
         # === Target Found - Finder stops at target, others follow as slaves ===
         target_x, target_y = self.target_point
-        
+
         self.get_logger().info(
             f'Finder {self.finder_drone} navigating to target at ({target_x:.2f}, {target_y:.2f})'
         )
@@ -641,7 +662,7 @@ class MissionActionClient(Node):
 
         # Other drones follow the finder as slaves (formation behind)
         self.get_logger().info('Other drones following finder as slaves...')
-        
+
         # Formation offsets (behind and to the sides)
         follower_offsets = [(-3.0, -2.0), (-3.0, 2.0)]
         offset_idx = 0
@@ -683,7 +704,7 @@ class MissionActionClient(Node):
             f'Published goal_pose: ({target_x:.2f}, {target_y:.2f}, {self.flight_altitude})'
         )
 
-        self.get_logger().info('Spiral search completed successfully')
+        self.get_logger().info('Block search completed successfully')
         return True
 
 
