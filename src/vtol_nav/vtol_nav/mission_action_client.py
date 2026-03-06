@@ -83,7 +83,9 @@ class MissionActionClient(Node):
         self.origin_y = 0.0
 
         # Map file path
-        self.map_yaml_path = '/home/qasob/swarm_robots_ws/src/map_provider/maps/updated_maze_map.yaml'
+        self.map_yaml_path = os.path.expanduser(
+            '~/swarm_robots_ws/src/map_provider/maps/updated_maze_map.yaml'
+        )
 
         # Fixed target point
         self.fixed_target_x = 4.0

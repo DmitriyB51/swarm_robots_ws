@@ -9,7 +9,8 @@ import omni
 from isaacsim.core.utils.stage import open_stage
 from isaacsim.core.api import World
 
-usd_path = "/home/qasob/swarm_robots_ws/src/robots/scene/maze_small_with_ground.usd"
+import os
+usd_path = os.path.expanduser("~/swarm_robots_ws/src/robots/scene/maze_small_with_ground.usd")
 
 open_stage(usd_path)
 

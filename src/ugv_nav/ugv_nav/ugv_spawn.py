@@ -231,6 +231,7 @@
 from isaacsim import SimulationApp
 simulation_app = SimulationApp({"renderer": "RaytracedLighting", "headless": False})
 
+import os
 import omni
 import numpy as np
 from scipy.spatial.transform import Rotation as R
@@ -390,7 +391,7 @@ class UGVSwarmManager:
 
         self.world = World(stage_units_in_meters=1.0)
 
-        env_usd_path = "/home/qasob/swarm_robots_ws/src/robots/scene/maze_small_with_ground.usd"
+        env_usd_path = os.path.expanduser("~/swarm_robots_ws/src/robots/scene/maze_small_with_ground.usd")
         add_reference_to_stage(env_usd_path, "/World/Environment")
 
         rclpy.init()
