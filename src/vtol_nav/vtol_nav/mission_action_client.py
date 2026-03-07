@@ -80,8 +80,8 @@ class MissionActionClient(Node):
         )
 
         # Fixed target point (end of bottom strip to maximize search time)
-        self.fixed_target_x = 12.0
-        self.fixed_target_y = -13.0
+        self.fixed_target_x = -12.0
+        self.fixed_target_y = 13.0
 
         # Spiral search state
         self.map_data = None
@@ -622,25 +622,37 @@ class MissionActionClient(Node):
 
         # Track waypoint index per drone
         drone_wp_idx = {name: 0 for name in self.all_drone_names}
+        wp_reached_tolerance = 3.0  # meters — advance early so PID doesn't decelerate
+
+        # Publish initial waypoints for all drones
+        for drone_name in self.all_drone_names:
+            wps = drone_waypoints[drone_name]
+            if len(wps) > 0:
+                self._navigate_drone_to(drone_name, wps[0][0], wps[0][1], self.flight_altitude)
 
         while not self.target_found:
+            time.sleep(0.5)
+
             for drone_name in self.all_drone_names:
                 wps = drone_waypoints[drone_name]
                 if len(wps) == 0:
                     continue
                 idx = drone_wp_idx[drone_name]
-
-                # Wrap around to keep searching
-                if idx >= len(wps):
-                    drone_wp_idx[drone_name] = 0
-                    idx = 0
-
                 wp_x, wp_y = wps[idx]
-                self._navigate_drone_to(drone_name, wp_x, wp_y, self.flight_altitude)
-                drone_wp_idx[drone_name] = idx + 1
 
-            # Wait for drones to move towards waypoint
-            time.sleep(1.0)
+                # Check if drone reached current waypoint — advance immediately
+                if drone_name in self.drone_poses:
+                    pose = self.drone_poses[drone_name]
+                    dx = pose.pose.position.x - wp_x
+                    dy = pose.pose.position.y - wp_y
+                    dist = math.sqrt(dx * dx + dy * dy)
+                    if dist <= wp_reached_tolerance:
+                        idx = (idx + 1) % len(wps)
+                        drone_wp_idx[drone_name] = idx
+                        wp_x, wp_y = wps[idx]
+
+                # Always publish so the drone always has a goal ahead of it
+                self._navigate_drone_to(drone_name, wp_x, wp_y, self.flight_altitude)
 
             # Check if any drone detected the target
             for drone_name in self.all_drone_names:
