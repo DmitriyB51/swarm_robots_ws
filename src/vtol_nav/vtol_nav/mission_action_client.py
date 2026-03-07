@@ -79,9 +79,9 @@ class MissionActionClient(Node):
             '~/swarm_robots_ws/src/map_provider/maps/updated_maze_map.yaml'
         )
 
-        # Fixed target point (far corner of top strip to maximize search time)
-        self.fixed_target_x = 13.0
-        self.fixed_target_y = 14.0
+        # Fixed target point (end of bottom strip to maximize search time)
+        self.fixed_target_x = 12.0
+        self.fixed_target_y = -13.0
 
         # Spiral search state
         self.map_data = None
@@ -500,10 +500,11 @@ class MissionActionClient(Node):
 
         # Small inset to stay just inside the outer perimeter
         margin = 0.5
+        y_offset = 3.0  # shift search area to match actual maze position
         x_min = world_x_min + margin
         x_max = world_x_max - margin
-        y_min = world_y_min + margin
-        y_max = world_y_max - margin
+        y_min = world_y_min + margin + y_offset
+        y_max = world_y_max - margin + y_offset
 
         self.get_logger().info(
             f'Search bounds: X [{x_min:.1f}, {x_max:.1f}], Y [{y_min:.1f}, {y_max:.1f}]'
