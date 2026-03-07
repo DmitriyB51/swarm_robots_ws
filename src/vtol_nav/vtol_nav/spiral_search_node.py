@@ -47,7 +47,7 @@ class SpiralSearchNode(Node):
 
         # Fixed target point
         self.fixed_target_x = -12.0
-        self.fixed_target_y = 13.0
+        self.fixed_target_y = 12.0
 
         # State
         self.map_data = None
@@ -464,12 +464,14 @@ class SpiralSearchNode(Node):
         # Wait for formation
         time.sleep(5.0)
 
-        # Publish final goal_pose for navigation
+        # Publish final goal_pose repeatedly to ensure UGV planners receive it
         final_pose = self.make_pose(target_x, target_y, self.flight_altitude)
-        self.final_goal_pub.publish(final_pose)
         self.get_logger().info(
-            f'Published goal_pose: ({target_x:.2f}, {target_y:.2f}, {self.flight_altitude})'
+            f'Publishing goal_pose: ({target_x:.2f}, {target_y:.2f}, {self.flight_altitude})'
         )
+        for _ in range(10):
+            self.final_goal_pub.publish(final_pose)
+            time.sleep(0.5)
 
         self.search_complete = True
         self.get_logger().info('=== Block Search Complete ===')
