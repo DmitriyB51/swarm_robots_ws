@@ -153,15 +153,19 @@ class DroneSlaveController(Node):
             vz = 0.0
             self.pid_z.reset()
 
-        # Yaw control: face direction of travel when far, goal yaw when close
+        # Yaw control: face direction of travel when far, blend to goal yaw when close
         goal_yaw = get_yaw_from_quaternion(self.goal_pose.pose.orientation)
         dist_xy = math.sqrt(ex * ex + ey * ey)
-        if dist_xy > 2.0:
-            # Face direction of travel
-            desired_yaw = math.atan2(ey, ex)
-        else:
-            # Close to goal — adopt goal orientation
+        travel_yaw = math.atan2(ey, ex)
+        if dist_xy > 3.0:
+            desired_yaw = travel_yaw
+        elif dist_xy < 1.0:
             desired_yaw = goal_yaw
+        else:
+            # Smooth blend between 3.0m and 1.0m
+            t = (dist_xy - 1.0) / 2.0  # 1.0 at 3m, 0.0 at 1m
+            diff = wrap_angle(travel_yaw - goal_yaw)
+            desired_yaw = wrap_angle(goal_yaw + t * diff)
         current_yaw = get_yaw_from_quaternion(self.current_pose.pose.orientation)
         yaw_error = wrap_angle(desired_yaw - current_yaw)
         yaw_rate = self.pid_yaw.compute(yaw_error, dt)
