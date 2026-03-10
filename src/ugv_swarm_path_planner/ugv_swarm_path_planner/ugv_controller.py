@@ -12,21 +12,21 @@ class UGVController(Node):
         super().__init__('ugv_controller')
 
         # Parameters
-        self.declare_parameter("lookahead_distance", 0.6)
-        self.declare_parameter("max_linear_speed", 1.0)
-        self.declare_parameter("max_angular_speed", 1.5)
-        self.declare_parameter("angular_gain", 3.5)
+        self.declare_parameter("max_linear_speed", 0.5)
+        self.declare_parameter("max_angular_speed", 2.0)
+        self.declare_parameter("heading_gain", 2.0)
+        self.declare_parameter("cross_track_gain", 2.0)
         self.declare_parameter("goal_tolerance", 0.3)
-        self.declare_parameter("waypoint_tolerance", 0.25)
+        self.declare_parameter("waypoint_tolerance", 0.5)
 
-        self.lookahead_distance = self.get_parameter(
-            "lookahead_distance").value
         self.max_linear_speed = self.get_parameter(
             "max_linear_speed").value
         self.max_angular_speed = self.get_parameter(
             "max_angular_speed").value
-        self.angular_gain = self.get_parameter(
-            "angular_gain").value
+        self.heading_gain = self.get_parameter(
+            "heading_gain").value
+        self.cross_track_gain = self.get_parameter(
+            "cross_track_gain").value
         self.goal_tolerance = self.get_parameter(
             "goal_tolerance").value
         self.waypoint_tolerance = self.get_parameter(
@@ -93,21 +93,22 @@ class UGVController(Node):
             self.path = []
             return
 
-        target = self.find_lookahead_point(rx, ry)
+        # Stanley-style: align with path direction + correct cross-track error
+        cross_track, path_heading = self.find_nearest_segment(rx, ry)
+        heading_error = self.normalize_angle(path_heading - yaw)
 
-        if target is None:
-            self.stop_robot()
-            return
-
-        tx, ty = target
-
-        angle_to_target = math.atan2(ty - ry, tx - rx)
-        heading_error = self.normalize_angle(angle_to_target - yaw)
-
+        # Linear speed: slow near goal, stop when facing wrong way
         linear_speed = min(self.max_linear_speed,
                            0.5 * distance_to_goal)
+        linear_speed *= max(0.0, math.cos(heading_error))
 
-        angular_speed = self.angular_gain * heading_error
+        # Angular: heading alignment + cross-track correction
+        angular_speed = self.heading_gain * heading_error
+        if linear_speed > 0.01:
+            angular_speed += math.atan2(
+                self.cross_track_gain * cross_track,
+                linear_speed
+            )
         angular_speed = max(min(angular_speed,
                                 self.max_angular_speed),
                             -self.max_angular_speed)
@@ -118,25 +119,63 @@ class UGVController(Node):
 
         self.cmd_pub.publish(cmd)
 
-    # Path Pruning
     def prune_path(self, rx, ry):
         while self.path:
             px = self.path[0].pose.position.x
             py = self.path[0].pose.position.y
-            distance = math.hypot(px - rx, py - ry)
-
-            if distance < self.waypoint_tolerance:
+            if math.hypot(px - rx, ry - py) < self.waypoint_tolerance:
                 self.path.pop(0)
             else:
                 break
 
-    def find_lookahead_point(self, rx, ry):
-        for pose in self.path:
-            px = pose.pose.position.x
-            py = pose.pose.position.y
-            if math.hypot(px - rx, py - ry) >= self.lookahead_distance:
-                return (px, py)
-        return None
+    def find_nearest_segment(self, rx, ry):
+        """Return (signed_cross_track, path_heading) for the nearest segment."""
+        if len(self.path) < 2:
+            px = self.path[0].pose.position.x
+            py = self.path[0].pose.position.y
+            return 0.0, math.atan2(py - ry, px - rx)
+
+        min_dist_sq = float('inf')
+        best_idx = 0
+
+        for i in range(len(self.path) - 1):
+            ax = self.path[i].pose.position.x
+            ay = self.path[i].pose.position.y
+            bx = self.path[i + 1].pose.position.x
+            by = self.path[i + 1].pose.position.y
+
+            abx, aby = bx - ax, by - ay
+            apx, apy = rx - ax, ry - ay
+            ab_sq = abx * abx + aby * aby
+
+            if ab_sq < 1e-6:
+                dist_sq = apx * apx + apy * apy
+            else:
+                t = max(0.0, min(1.0, (apx * abx + apy * aby) / ab_sq))
+                px = ax + t * abx
+                py = ay + t * aby
+                dist_sq = (rx - px) ** 2 + (ry - py) ** 2
+
+            if dist_sq < min_dist_sq:
+                min_dist_sq = dist_sq
+                best_idx = i
+
+        ax = self.path[best_idx].pose.position.x
+        ay = self.path[best_idx].pose.position.y
+        bx = self.path[best_idx + 1].pose.position.x
+        by = self.path[best_idx + 1].pose.position.y
+
+        dx, dy = bx - ax, by - ay
+        path_heading = math.atan2(dy, dx)
+
+        # Signed cross-track: positive = robot is right of path (needs left turn)
+        path_len = math.hypot(dx, dy)
+        if path_len > 1e-6:
+            cross_track = (dy * (rx - ax) - dx * (ry - ay)) / path_len
+        else:
+            cross_track = 0.0
+
+        return cross_track, path_heading
 
     def stop_robot(self):
         self.cmd_pub.publish(Twist())

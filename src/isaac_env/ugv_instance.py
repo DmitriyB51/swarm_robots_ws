@@ -66,7 +66,9 @@ class UGVInstance:
 
         self.tf_broadcaster = tf2_ros.TransformBroadcaster(ros_node)
 
-        self._dof_names_printed = False
+        self._dof_resolved = False
+        self._right_indices = []
+        self._left_indices = []
 
     def initialize_after_reset(self, initial_position, initial_orientation):
         """Initialize UGV state after world reset."""
@@ -90,23 +92,49 @@ class UGVInstance:
 
         v_left = (v - (self.wheel_base / 2.0) * w) / self.wheel_radius
         v_right = (v + (self.wheel_base / 2.0) * w) / self.wheel_radius
-        # Front wheels powered, rear wheels passive (zero velocity)
-        return v_left, v_right, 0.0, 0.0
+        return v_left, v_right
+
+    def _resolve_dof_mapping(self):
+        """Resolve DOF indices for left/right wheels from DOF names."""
+        dof_names = list(self.articulation.dof_names)
+        self.ros_node.get_logger().info(
+            f"[{self.name}] DOF names: {dof_names}"
+        )
+
+        # From URDF joint origins:
+        #   Revolute_1 (y<0) = Front Right
+        #   Revolute_2 (y<0) = Rear Right
+        #   Revolute_3 (y>0) = Front Left
+        #   Revolute_4 (y>0) = Rear Left
+        right_keywords = ['Revolute_1', 'Revolute_2']
+        left_keywords = ['Revolute_3', 'Revolute_4']
+
+        for i, name in enumerate(dof_names):
+            if any(k in name for k in right_keywords):
+                self._right_indices.append(i)
+            elif any(k in name for k in left_keywords):
+                self._left_indices.append(i)
+
+        self.ros_node.get_logger().info(
+            f"[{self.name}] Right DOFs (idx {self._right_indices}), "
+            f"Left DOFs (idx {self._left_indices})"
+        )
 
     def update(self):
-        """Apply wheel velocities for 4-wheel rover (front differential drive)."""
-        if not self._dof_names_printed:
-            self.ros_node.get_logger().info(
-                f"[{self.name}] DOF names: {self.articulation.dof_names}"
-            )
-            self._dof_names_printed = True
+        """Apply wheel velocities for 4-wheel rover (differential drive)."""
+        if not self._dof_resolved:
+            self._resolve_dof_mapping()
+            self._dof_resolved = True
 
-        fl, fr, rl, rr = self.compute_wheel_velocities()
+        v_left, v_right = self.compute_wheel_velocities()
 
         num_dofs = self.articulation.num_dof
         joint_vel = np.zeros((1, num_dofs), dtype=np.float32)
-        joint_vel[0, :4] = [fl, fr, rl, rr]
-        self.articulation.set_joint_velocities(joint_vel)
+        for i in self._right_indices:
+            joint_vel[0, i] = v_right
+        for i in self._left_indices:
+            joint_vel[0, i] = v_left
+        self.articulation.set_joint_velocity_targets(joint_vel)
 
     def publish_odometry(self):
         """Publish odometry and TF."""
