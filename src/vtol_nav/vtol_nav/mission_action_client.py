@@ -137,15 +137,15 @@ class MissionActionClient(Node):
                 -1.0795470476150513, -18.356243133544922, 5.0,
                 0.0, 0.0, 0.7239233431599225, 0.6898804195135279
             ),
-            'vtol_2': make_pose_quat(
+            'vtol_3': make_pose_quat(
                 -17.56472396850586, -0.7498464584350586, 5.0,
                 0.0, 0.0, 0.021339575169731635, 0.9997722853388042
             ),
-            'vtol_3': make_pose_quat(
+            'vtol_2': make_pose_quat(
                 15.534133911132812, -0.7533082962036133, 5.0,
                 0.0, 0.0, -0.9999898369146042, 0.004508444022421742
             ),
-            
+
         }
 
         # Phase 3: Descent waypoints (z=0.5, same x/y as phase 2)
@@ -154,15 +154,15 @@ class MissionActionClient(Node):
                 -1.0795470476150513, -18.356243133544922, 1.5,
                 0.0, 0.0, 0.7239233431599225, 0.6898804195135279
             ),
-            'vtol_2': make_pose_quat(
+            'vtol_3': make_pose_quat(
                 -17.56472396850586, -0.7498464584350586, 1.5,
                 0.0, 0.0, 0.021339575169731635, 0.9997722853388042
             ),
-            'vtol_3': make_pose_quat(
+            'vtol_2': make_pose_quat(
                 15.534133911132812, -0.7533082962036133, 1.5,
                 0.0, 0.0, -0.9999898369146042, 0.004508444022421742
             ),
-            
+
         }
 
         # Phase 4: Ascent waypoints (z=5, same x/y as phase 2)
@@ -171,15 +171,15 @@ class MissionActionClient(Node):
                 -1.0795470476150513, -18.356243133544922, 5.0,
                 0.0, 0.0, 0.7239233431599225, 0.6898804195135279
             ),
-            'vtol_2': make_pose_quat(
+            'vtol_3': make_pose_quat(
                 -17.56472396850586, -0.7498464584350586, 5.0,
                 0.0, 0.0, 0.021339575169731635, 0.9997722853388042
             ),
-            'vtol_3': make_pose_quat(
+            'vtol_2': make_pose_quat(
                 15.534133911132812, -0.7533082962036133, 5.0,
                 0.0, 0.0, -0.9999898369146042, 0.004508444022421742
             ),
-            
+
         }
 
         self._mission_complete = False
@@ -205,7 +205,7 @@ class MissionActionClient(Node):
         success = self._execute_leader_follower(
             goal_pose=self.formation_waypoint_1,
             leader='vtol_1',
-            followers=['vtol_2', 'vtol_3']
+            followers=['vtol_3', 'vtol_2']
         )
         if not success:
             self.get_logger().error('Phase 1a failed, aborting mission')
@@ -222,7 +222,7 @@ class MissionActionClient(Node):
         success = self._execute_leader_follower(
             goal_pose=self.formation_waypoint_2,
             leader='vtol_1',
-            followers=['vtol_2', 'vtol_3']
+            followers=['vtol_3', 'vtol_2']
         )
         if not success:
             self.get_logger().error('Phase 1b failed, aborting mission')
