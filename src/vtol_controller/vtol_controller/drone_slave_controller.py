@@ -153,15 +153,22 @@ class DroneSlaveController(Node):
             vz = 0.0
             self.pid_z.reset()
 
-        # Yaw control from goal orientation
+        # Yaw control: face direction of travel when far, goal yaw when close
         goal_yaw = get_yaw_from_quaternion(self.goal_pose.pose.orientation)
+        dist_xy = math.sqrt(ex * ex + ey * ey)
+        if dist_xy > 2.0:
+            # Face direction of travel
+            desired_yaw = math.atan2(ey, ex)
+        else:
+            # Close to goal — adopt goal orientation
+            desired_yaw = goal_yaw
         current_yaw = get_yaw_from_quaternion(self.current_pose.pose.orientation)
-        yaw_error = wrap_angle(goal_yaw - current_yaw)
+        yaw_error = wrap_angle(desired_yaw - current_yaw)
         yaw_rate = self.pid_yaw.compute(yaw_error, dt)
 
         # Convert world velocity to body-frame for tilt compensation
-        front_vel = vx * math.cos(goal_yaw) + vy * math.sin(goal_yaw)
-        side_vel = -vx * math.sin(goal_yaw) + vy * math.cos(goal_yaw)
+        front_vel = vx * math.cos(desired_yaw) + vy * math.sin(desired_yaw)
+        side_vel = -vx * math.sin(desired_yaw) + vy * math.cos(desired_yaw)
 
         desired_pitch = -self.tilt_factor * front_vel
         desired_roll = self.tilt_factor * side_vel
