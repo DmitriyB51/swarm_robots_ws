@@ -107,11 +107,30 @@ class CombinedSwarmManager:
         else:
             carb.log_warn(f"VTOL asset not found at {vtol_asset_path}, skipping drones")
 
+        # UGV asset path
+        ugv_asset_path = os.path.expanduser(
+            "~/swarm_robots_ws/src/robots/rover/rover.usd"
+        )
+
         # Create UGVs
-        self.ugvs = [
-            UGVInstance(self.world, self.ros_node, name, position, orientation)
-            for name, position, orientation in ugv_configs
-        ]
+        self.ugvs = []
+        self.ugv_init_configs = []
+        if os.path.exists(ugv_asset_path):
+            for name, position, orientation in ugv_configs:
+                self.ugvs.append(
+                    UGVInstance(
+                        self.world,
+                        self.ros_node,
+                        name,
+                        position,
+                        orientation,
+                        ugv_asset_path,
+                        self.stage
+                    )
+                )
+                self.ugv_init_configs.append((position, orientation))
+        else:
+            carb.log_warn(f"UGV asset not found at {ugv_asset_path}, skipping UGVs")
 
         # Reset world
         self.world.reset()
@@ -119,6 +138,10 @@ class CombinedSwarmManager:
         # Initialize drones after reset
         for drone in self.drones:
             drone.initialize_after_reset()
+
+        # Initialize UGVs after reset
+        for ugv, (pos, ori) in zip(self.ugvs, self.ugv_init_configs):
+            ugv.initialize_after_reset(pos, ori)
 
         self.timeline = omni.timeline.get_timeline_interface()
         self.stage_units = get_stage_units()

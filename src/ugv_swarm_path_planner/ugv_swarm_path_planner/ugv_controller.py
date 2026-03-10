@@ -12,12 +12,12 @@ class UGVController(Node):
         super().__init__('ugv_controller')
 
         # Parameters
-        self.declare_parameter("lookahead_distance", 0.3)
-        self.declare_parameter("max_linear_speed", 0.15)
-        self.declare_parameter("max_angular_speed", 1.0)
+        self.declare_parameter("lookahead_distance", 0.6)
+        self.declare_parameter("max_linear_speed", 1.0)
+        self.declare_parameter("max_angular_speed", 1.5)
         self.declare_parameter("angular_gain", 3.5)
-        self.declare_parameter("goal_tolerance", 0.2)
-        self.declare_parameter("waypoint_tolerance", 0.15)
+        self.declare_parameter("goal_tolerance", 0.3)
+        self.declare_parameter("waypoint_tolerance", 0.25)
 
         self.lookahead_distance = self.get_parameter(
             "lookahead_distance").value

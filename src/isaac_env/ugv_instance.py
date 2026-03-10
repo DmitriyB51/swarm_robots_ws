@@ -1,13 +1,12 @@
 # UGV Instance class - import after SimulationApp is created
+import os
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
-import omni
-from pxr import Gf, UsdGeom
+from pxr import UsdPhysics, Usd
 
 from isaacsim.core.prims import Articulation
-from isaacsim.core.utils.stage import add_reference_to_stage
-from isaacsim.storage.native import get_assets_root_path
+from isaacsim.core.utils.stage import add_reference_to_stage, get_stage_units
 
 from geometry_msgs.msg import Twist, TransformStamped
 from nav_msgs.msg import Odometry
@@ -17,52 +16,38 @@ import tf2_ros
 class UGVInstance:
     """UGV (ground vehicle) instance with differential drive."""
 
-    def __init__(self, world, ros_node, name, initial_position, initial_orientation):
+    def __init__(self, world, ros_node, name, initial_position, initial_orientation, asset_path, stage):
 
         self.name = name
         self.namespace = f"/{name}"
-        self.world = world
+        self.stage = stage
         self.ros_node = ros_node
 
-        self.wheel_radius = 0.0325
-        self.wheel_base = 0.1125
+        self.wheel_radius = 0.04       # 80mm diameter / 2
+        self.wheel_base = 0.12         # Track width from URDF
 
         self.linear_velocity = 0.0
         self.angular_velocity = 0.0
 
-        assets_root_path = get_assets_root_path()
-        jetbot_asset_path = assets_root_path + "/Isaac/Robots/Jetbot/jetbot.usd"
-
+        # Spawn USD
         self.prim_path = f"/World/{name}"
-        add_reference_to_stage(jetbot_asset_path, self.prim_path)
+        add_reference_to_stage(asset_path, self.prim_path)
 
-        stage = omni.usd.get_context().get_stage()
+        self.articulation = Articulation(
+            prim_paths_expr=self.prim_path,
+            name=name
+        )
+
         prim = stage.GetPrimAtPath(self.prim_path)
-        xform = UsdGeom.Xformable(prim)
 
-        # Create rotation from quaternion (Gf.Quatd takes real part first: w, x, y, z)
-        quat = Gf.Quatd(
-            float(initial_orientation[3]),  # w (real part)
-            float(initial_orientation[0]),  # x
-            float(initial_orientation[1]),  # y
-            float(initial_orientation[2])   # z
-        )
-        rotation = Gf.Rotation(quat)
-
-        # Create the transform matrix with rotation and translation
-        transform = Gf.Matrix4d()
-        transform.SetTransform(rotation, Gf.Vec3d(
-            float(initial_position[0]),
-            float(initial_position[1]),
-            float(initial_position[2])
-        ))
-
-        xform.AddTransformOp().Set(transform)
-
-
-        self.robot = world.scene.add(
-            Articulation(self.prim_path, name=name)
-        )
+        # Apply DriveAPI for wheel joints
+        for p in Usd.PrimRange(prim):
+            if p.IsA(UsdPhysics.RevoluteJoint):
+                drive = UsdPhysics.DriveAPI.Apply(p, "angular")
+                drive.CreateTypeAttr("force")
+                drive.CreateStiffnessAttr(0.0)
+                drive.CreateDampingAttr(1e4)
+                drive.CreateMaxForceAttr(1e6)
 
         self.odom_pub = ros_node.create_publisher(
             Odometry,
@@ -79,6 +64,20 @@ class UGVInstance:
 
         self.tf_broadcaster = tf2_ros.TransformBroadcaster(ros_node)
 
+        self._dof_names_printed = False
+
+    def initialize_after_reset(self, initial_position, initial_orientation):
+        """Initialize UGV state after world reset."""
+        pos = np.array([initial_position], dtype=np.float32) / get_stage_units()
+        # initial_orientation is [qx, qy, qz, qw] → Isaac wants [qw, qx, qy, qz]
+        ori = np.array([[
+            initial_orientation[3],
+            initial_orientation[0],
+            initial_orientation[1],
+            initial_orientation[2],
+        ]], dtype=np.float32)
+        self.articulation.set_world_poses(positions=pos, orientations=ori)
+
     def cmd_callback(self, msg):
         self.linear_velocity = msg.linear.x
         self.angular_velocity = msg.angular.z
@@ -89,23 +88,31 @@ class UGVInstance:
 
         v_left = (v - (self.wheel_base / 2.0) * w) / self.wheel_radius
         v_right = (v + (self.wheel_base / 2.0) * w) / self.wheel_radius
-        return v_left, v_right
+        # Front wheels powered, rear wheels passive (zero velocity)
+        return v_left, v_right, 0.0, 0.0
 
     def update(self):
-        """Apply wheel velocities for differential drive."""
-        v_l, v_r = self.compute_wheel_velocities()
+        """Apply wheel velocities for 4-wheel rover (front differential drive)."""
+        if not self._dof_names_printed:
+            self.ros_node.get_logger().info(
+                f"[{self.name}] DOF names: {self.articulation.dof_names}"
+            )
+            self._dof_names_printed = True
 
-        self.robot.set_joint_velocities(
-            np.array([[v_l, v_r]], dtype=np.float32)
-        )
+        fl, fr, rl, rr = self.compute_wheel_velocities()
+
+        num_dofs = self.articulation.num_dof
+        joint_vel = np.zeros((1, num_dofs), dtype=np.float32)
+        joint_vel[0, :4] = [fl, fr, rl, rr]
+        self.articulation.set_joint_velocities(joint_vel)
 
     def publish_odometry(self):
         """Publish odometry and TF."""
-        positions, orientations = self.robot.get_world_poses()
+        positions, orientations = self.articulation.get_world_poses()
         pos, quat_isaac = positions[0], orientations[0]
 
-        lin_vel_world = self.robot.get_linear_velocities()[0]
-        ang_vel_world = self.robot.get_angular_velocities()[0]
+        lin_vel_world = self.articulation.get_linear_velocities()[0]
+        ang_vel_world = self.articulation.get_angular_velocities()[0]
 
         # Isaac (w,x,y,z) → ROS (x,y,z,w)
         quat_ros = [
