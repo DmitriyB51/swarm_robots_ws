@@ -3,7 +3,7 @@ import os
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
-from pxr import UsdPhysics, Usd
+from pxr import UsdPhysics, UsdGeom, Usd
 
 from isaacsim.core.prims import Articulation
 from isaacsim.core.utils.stage import add_reference_to_stage, get_stage_units
@@ -23,8 +23,9 @@ class UGVInstance:
         self.stage = stage
         self.ros_node = ros_node
 
-        self.wheel_radius = 0.04       # 80mm diameter / 2
-        self.wheel_base = 0.12         # Track width from URDF
+        self.scale = 2.0
+        self.wheel_radius = 0.04 * self.scale
+        self.wheel_base = 0.12 * self.scale
 
         self.linear_velocity = 0.0
         self.angular_velocity = 0.0
@@ -33,12 +34,13 @@ class UGVInstance:
         self.prim_path = f"/World/{name}"
         add_reference_to_stage(asset_path, self.prim_path)
 
+        prim = stage.GetPrimAtPath(self.prim_path)
+        prim.GetAttribute("xformOp:scale").Set((self.scale, self.scale, self.scale))
+
         self.articulation = Articulation(
             prim_paths_expr=self.prim_path,
             name=name
         )
-
-        prim = stage.GetPrimAtPath(self.prim_path)
 
         # Apply DriveAPI for wheel joints
         for p in Usd.PrimRange(prim):
