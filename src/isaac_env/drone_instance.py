@@ -112,6 +112,9 @@ class DroneInstance:
         """Update drone position and propeller animation."""
         # Update pose
         self.position += self.cmd_vel * dt
+        # Prevent going below ground
+        if self.position[2] < 0.15:
+            self.position[2] = 0.15
         self.roll += self.cmd_ang[0] * dt
         self.pitch += self.cmd_ang[1] * dt
         self.yaw += self.cmd_ang[2] * dt

@@ -156,18 +156,18 @@ class MissionActionClient(Node):
 
         }
 
-        # Phase 3: Descent waypoints (z=0.5, same x/y as phase 2)
+        # Phase 3: Descent waypoints (z=0.3, same x/y as phase 2)
         self.descent_waypoints = {
             'vtol_1': make_pose_quat(
-                -1.0795470476150513, -18.356243133544922, 1.5,
+                -1.0795470476150513, -18.356243133544922, 0.4,
                 0.0, 0.0, 0.7239233431599225, 0.6898804195135279
             ),
             'vtol_3': make_pose_quat(
-                -17.56472396850586, -0.7498464584350586, 1.5,
+                -17.56472396850586, -0.7498464584350586, 0.4,
                 0.0, 0.0, 0.021339575169731635, 0.9997722853388042
             ),
             'vtol_2': make_pose_quat(
-                15.534133911132812, -0.7533082962036133, 1.5,
+                15.534133911132812, -0.7533082962036133, 0.4,
                 0.0, 0.0, -0.9999898369146042, 0.004508444022421742
             ),
 
@@ -265,8 +265,8 @@ class MissionActionClient(Node):
 
         # === DROP UGVs ===
         self._send_drop_commands()
-        self.get_logger().info('Waiting 3 seconds for UGVs to settle on ground...')
-        time.sleep(3.0)
+        self.get_logger().info('Waiting 4 seconds for UGVs to settle on ground...')
+        time.sleep(4.0)
 
         # === Phase 4: Ascent to z=5 ===
         self.get_logger().info('')
