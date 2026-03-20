@@ -35,9 +35,12 @@ class DroneInstance:
         self.roll = 0.0
         self.pitch = 0.0
         self.yaw = 0.0
+        self.yaw_offset = np.pi  # Rotate mesh 180° so nose faces forward
 
         self.cmd_vel = np.zeros(3)
         self.cmd_ang = np.zeros(3)
+
+        self.carried_ugv = None  # Reference to carried UGV, set by combined_spawn
 
         # Spawn USD
         self.prim_path = f"/World/{name}"
@@ -50,7 +53,7 @@ class DroneInstance:
 
         prim = stage.GetPrimAtPath(self.prim_path)
 
-        # Kinematic base
+        # Kinematic base (original logic — root prim check)
         if prim.HasAPI(UsdPhysics.RigidBodyAPI):
             rigid_body = UsdPhysics.RigidBodyAPI(prim)
             rigid_body.CreateKinematicEnabledAttr(True)
@@ -113,7 +116,7 @@ class DroneInstance:
         self.pitch += self.cmd_ang[1] * dt
         self.yaw += self.cmd_ang[2] * dt
 
-        qw, qx, qy, qz = euler_to_quat(self.roll, self.pitch, self.yaw)
+        qw, qx, qy, qz = euler_to_quat(self.roll, self.pitch, self.yaw + self.yaw_offset)
         orientation = np.array([[qw, qx, qy, qz]], dtype=np.float32)
         positions = (self.position / stage_units)[None, :]
 
@@ -136,19 +139,24 @@ class DroneInstance:
         self.articulation.set_joint_velocities(joint_vel)
 
     def publish_pose(self, ros_node):
-        """Publish drone pose."""
-        pos, ori = self.articulation.get_world_poses()
+        """Publish drone pose using logical orientation (without yaw_offset).
+
+        The yaw_offset only rotates the visual mesh so the nose faces forward.
+        The PID controller needs the logical yaw (without offset) so that
+        body-frame velocity commands aren't reversed.
+        """
+        qw, qx, qy, qz = euler_to_quat(self.roll, self.pitch, self.yaw)
 
         msg = PoseStamped()
         msg.header.frame_id = "world"
         msg.header.stamp = ros_node.get_clock().now().to_msg()
 
-        msg.pose.position.x = float(pos[0][0])
-        msg.pose.position.y = float(pos[0][1])
-        msg.pose.position.z = float(pos[0][2])
-        msg.pose.orientation.w = float(ori[0][0])
-        msg.pose.orientation.x = float(ori[0][1])
-        msg.pose.orientation.y = float(ori[0][2])
-        msg.pose.orientation.z = float(ori[0][3])
+        msg.pose.position.x = float(self.position[0])
+        msg.pose.position.y = float(self.position[1])
+        msg.pose.position.z = float(self.position[2])
+        msg.pose.orientation.w = float(qw)
+        msg.pose.orientation.x = float(qx)
+        msg.pose.orientation.y = float(qy)
+        msg.pose.orientation.z = float(qz)
 
         self.pose_pub.publish(msg)

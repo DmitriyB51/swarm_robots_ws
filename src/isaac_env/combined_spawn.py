@@ -9,7 +9,7 @@ import omni
 
 import rclpy
 
-from pxr import UsdGeom, UsdLux
+from pxr import UsdGeom, UsdLux, UsdPhysics
 
 from isaacsim.core.api import World
 from isaacsim.core.utils.stage import add_reference_to_stage, get_stage_units
@@ -71,9 +71,9 @@ class CombinedSwarmManager:
         rclpy.init()
         self.ros_node = rclpy.create_node("combined_swarm_controller")
 
-        # VTOL drone asset path
+        # VTOL drone asset path (new drone with drop mechanism)
         vtol_asset_path = os.path.expanduser(
-            "~/swarm_robots_ws/src/vtol_dron_description/urdf/vtol_simple/vtol_simple.usd"
+            "~/swarm_robots_ws/src/robots/drone/drone_final.usd"
         )
 
         # Drone configs: (name, [x, y, z])
@@ -83,11 +83,32 @@ class CombinedSwarmManager:
             ("vtol_3", [-33.0, 25.0, 5.0]),
         ]
 
-        # UGV configs: (name, [x, y, z], [qx, qy, qz, qw])
+        # Carry offset: UGV position relative to drone (from reference USD)
+        self.carry_offset = [0.6462, 0.0400, 0.0441]
+
+        # UGV configs: spawn at drone positions + carry offset (carried from start)
+        # Drones start at yaw=0 but have yaw_offset=pi (visual rotation in code)
+        # Rotate carry offset by yaw_offset so UGVs spawn at correct position
+        import math
+        yaw_offset = math.pi  # Must match drone_instance yaw_offset
+        cos_y = math.cos(yaw_offset)
+        sin_y = math.sin(yaw_offset)
+        rotated_offset = [
+            self.carry_offset[0] * cos_y - self.carry_offset[1] * sin_y,
+            self.carry_offset[0] * sin_y + self.carry_offset[1] * cos_y,
+            self.carry_offset[2],
+        ]
         ugv_configs = [
-            ("ugv_1", [-1.0795470476150513, -18.356243133544922, 0.05], [0.0, 0.0, 0.7239233431599225, 0.6898804195135279]),
-            ("ugv_2", [15.534133911132812, -0.7533082962036133, 0.05], [0.0, 0.0, -0.9999898369146042, 0.004508444022421742]),
-            ("ugv_3", [-17.56472396850586, -0.7498464584350586, 0.05], [0.0, 0.0, 0.021339575169731635, 0.9997722853388042]),
+            (
+                f"ugv_{i+1}",
+                [
+                    drone_configs[i][1][0] + rotated_offset[0],
+                    drone_configs[i][1][1] + rotated_offset[1],
+                    drone_configs[i][1][2] + rotated_offset[2],
+                ],
+                [0.0, 0.0, 0.0, 1.0],
+            )
+            for i in range(len(drone_configs))
         ]
 
         # Create drones
@@ -132,6 +153,15 @@ class CombinedSwarmManager:
         else:
             carb.log_warn(f"UGV asset not found at {ugv_asset_path}, skipping UGVs")
 
+        # Link drone-UGV pairs for carrying and disable mutual collision
+        for drone, ugv in zip(self.drones, self.ugvs):
+            ugv.carrier_drone = drone
+            drone.carried_ugv = ugv
+            filtered = UsdPhysics.FilteredPairsAPI.Apply(
+                self.stage.GetPrimAtPath(drone.prim_path)
+            )
+            filtered.CreateFilteredPairsRel().AddTarget(ugv.prim_path)
+
         # Reset world
         self.world.reset()
 
@@ -161,10 +191,12 @@ class CombinedSwarmManager:
             for drone in self.drones:
                 drone.update(dt, self.stage_units)
 
-            # Step world
+            # Step world (physics runs here)
             self.world.step(render=True)
 
-            # Update UGVs (physics-based)
+            # Update ALL UGVs AFTER physics:
+            # - Carried: teleport to drone position + zero velocities
+            # - Ground: apply wheel drive commands
             if self.world.is_playing():
                 for ugv in self.ugvs:
                     ugv.update()

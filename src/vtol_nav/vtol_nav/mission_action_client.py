@@ -22,6 +22,7 @@ from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
 
 from geometry_msgs.msg import PoseStamped
+from std_msgs.msg import Bool
 from vtol_interfaces.action import LeaderFollowerNavigate, VtolNavigate
 
 
@@ -118,6 +119,13 @@ class MissionActionClient(Node):
         self.final_goal_pub = self.create_publisher(
             PoseStamped, '/goal_pose', 10
         )
+
+        # Drop command publishers for UGVs
+        self.drop_publishers = {}
+        for name in ['ugv_1', 'ugv_2', 'ugv_3']:
+            self.drop_publishers[name] = self.create_publisher(
+                Bool, f'/{name}/drop', 10
+            )
 
         # Phase 1a: Initial formation point (several meters away for proper formation)
         self.formation_waypoint_1 = make_pose_quat(
@@ -255,8 +263,9 @@ class MissionActionClient(Node):
             self._mission_complete = True
             return
 
-        # Delay before ascent
-        self.get_logger().info('Waiting 3 seconds before proceeding to Phase 4...')
+        # === DROP UGVs ===
+        self._send_drop_commands()
+        self.get_logger().info('Waiting 3 seconds for UGVs to settle on ground...')
         time.sleep(3.0)
 
         # === Phase 4: Ascent to z=5 ===
@@ -330,6 +339,18 @@ class MissionActionClient(Node):
         self.get_logger().info(
             f'[Formation {leader_name}] Distance to goal: {fb.distance_to_goal:.2f}m'
         )
+
+    def _send_drop_commands(self):
+        """Send drop commands to all UGVs."""
+        self.get_logger().info('=== Sending DROP commands to all UGVs ===')
+        drop_msg = Bool()
+        drop_msg.data = True
+        # Publish multiple times for reliability
+        for _ in range(5):
+            for name, pub in self.drop_publishers.items():
+                pub.publish(drop_msg)
+            time.sleep(0.1)
+        self.get_logger().info('DROP commands sent to all UGVs')
 
     def _execute_independent_flight(self, waypoints_dict):
         """Execute independent navigation for all drones in parallel."""

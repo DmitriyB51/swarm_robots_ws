@@ -10,11 +10,14 @@ from isaacsim.core.utils.stage import add_reference_to_stage, get_stage_units
 
 from geometry_msgs.msg import Twist, TransformStamped
 from nav_msgs.msg import Odometry
+from std_msgs.msg import Bool
 import tf2_ros
+
+from drone_instance import euler_to_quat
 
 
 class UGVInstance:
-    """UGV (ground vehicle) instance with differential drive."""
+    """UGV (ground vehicle) instance with differential drive and carry/drop support."""
 
     def __init__(self, world, ros_node, name, initial_position, initial_orientation, asset_path, stage):
 
@@ -23,12 +26,18 @@ class UGVInstance:
         self.stage = stage
         self.ros_node = ros_node
 
-        self.scale = 2.0
-        self.wheel_radius = 0.04 * self.scale
-        self.wheel_base = 0.12 * self.scale
+        self.scale = 1.0
+        self.wheel_radius = 0.04
+        self.wheel_base = 0.12
 
         self.linear_velocity = 0.0
         self.angular_velocity = 0.0
+
+        # Carry/drop state
+        self.attached = True
+        self.carrier_drone = None
+        self.carry_offset = np.array([0.6462, 0.0400, 0.0441])
+        self.released = False
 
         # Spawn USD
         self.prim_path = f"/World/{name}"
@@ -41,6 +50,9 @@ class UGVInstance:
             prim_paths_expr=self.prim_path,
             name=name
         )
+
+        # Disable collision while carried (re-enabled on drop)
+        self._set_collision_enabled(False)
 
         # Apply DriveAPI for wheel joints
         for p in Usd.PrimRange(prim):
@@ -64,11 +76,40 @@ class UGVInstance:
             10
         )
 
+        # Drop command subscription
+        ros_node.create_subscription(
+            Bool,
+            f"{self.namespace}/drop",
+            self.drop_callback,
+            10
+        )
+
         self.tf_broadcaster = tf2_ros.TransformBroadcaster(ros_node)
 
         self._dof_resolved = False
         self._right_indices = []
         self._left_indices = []
+
+    def _set_collision_enabled(self, enabled):
+        """Enable/disable all collision shapes in the UGV hierarchy."""
+        root = self.stage.GetPrimAtPath(self.prim_path)
+        for p in Usd.PrimRange(root):
+            if p.HasAPI(UsdPhysics.CollisionAPI):
+                col = UsdPhysics.CollisionAPI(p)
+                col.GetCollisionEnabledAttr().Set(enabled)
+
+    def drop_callback(self, msg):
+        """Handle drop command from mission client."""
+        if msg.data and self.attached:
+            self.release()
+
+    def release(self):
+        """Transition from carried to independent physics-driven mode."""
+        self.attached = False
+        self.released = True
+        self.carrier_drone = None
+        self._set_collision_enabled(True)
+        self.ros_node.get_logger().info(f"[{self.name}] RELEASED from drone")
 
     def initialize_after_reset(self, initial_position, initial_orientation):
         """Initialize UGV state after world reset."""
@@ -82,7 +123,11 @@ class UGVInstance:
         ]], dtype=np.float32)
         self.articulation.set_world_poses(positions=pos, orientations=ori)
 
+        # No kinematic toggle needed — carried UGVs are teleported before physics step
+
     def cmd_callback(self, msg):
+        if self.attached:
+            return
         self.linear_velocity = msg.linear.x
         self.angular_velocity = msg.angular.z
 
@@ -120,7 +165,53 @@ class UGVInstance:
             f"Left DOFs (idx {self._left_indices})"
         )
 
+    def update_carried(self):
+        """Update UGV position to track underneath the carrier drone."""
+        if self.carrier_drone is None:
+            return
+
+        drone_pos = self.carrier_drone.position.copy()
+        # Use drone's visual yaw (including offset) for correct positioning
+        drone_visual_yaw = self.carrier_drone.yaw + self.carrier_drone.yaw_offset
+
+        # Rotate carry offset by drone's visual yaw into world frame
+        cos_y = np.cos(drone_visual_yaw)
+        sin_y = np.sin(drone_visual_yaw)
+        rotated_offset = np.array([
+            self.carry_offset[0] * cos_y - self.carry_offset[1] * sin_y,
+            self.carry_offset[0] * sin_y + self.carry_offset[1] * cos_y,
+            self.carry_offset[2]
+        ])
+
+        carried_pos = drone_pos + rotated_offset
+
+        # Match drone visual orientation
+        qw, qx, qy, qz = euler_to_quat(0.0, 0.0, drone_visual_yaw)
+
+        positions = np.array([carried_pos], dtype=np.float32) / get_stage_units()
+        orientations = np.array([[qw, qx, qy, qz]], dtype=np.float32)
+        self.articulation.set_world_poses(positions=positions, orientations=orientations)
+
+        # Zero out velocities to prevent accumulation from gravity
+        self.articulation.set_linear_velocities(np.zeros((1, 3), dtype=np.float32))
+        self.articulation.set_angular_velocities(np.zeros((1, 3), dtype=np.float32))
+
     def update(self):
+        """Dispatch to carried or ground update based on state."""
+        if self.attached:
+            self.update_carried()
+            return
+
+        if self.released:
+            # One-time transition: just clear the flag and zero velocities
+            self.released = False
+            self.linear_velocity = 0.0
+            self.angular_velocity = 0.0
+            return
+
+        self._update_ground()
+
+    def _update_ground(self):
         """Apply wheel velocities for 4-wheel rover (differential drive)."""
         if not self._dof_resolved:
             self._resolve_dof_mapping()
@@ -151,6 +242,11 @@ class UGVInstance:
             quat_isaac[3],
             quat_isaac[0],
         ]
+
+        # Guard against zero-norm quaternion (uninitialized articulation)
+        quat_norm = np.linalg.norm(quat_ros)
+        if quat_norm < 1e-6:
+            quat_ros = [0.0, 0.0, 0.0, 1.0]
 
         rot = R.from_quat(quat_ros)
         lin_vel_local = rot.inv().apply(lin_vel_world)
