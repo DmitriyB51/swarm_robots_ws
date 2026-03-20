@@ -9,7 +9,7 @@ import omni
 
 import rclpy
 
-from pxr import UsdGeom, UsdLux, UsdPhysics
+from pxr import UsdGeom, UsdLux
 
 from isaacsim.core.api import World
 from isaacsim.core.utils.stage import add_reference_to_stage, get_stage_units
@@ -153,14 +153,9 @@ class CombinedSwarmManager:
         else:
             carb.log_warn(f"UGV asset not found at {ugv_asset_path}, skipping UGVs")
 
-        # Link drone-UGV pairs for carrying and disable mutual collision
+        # Link drone-UGV pairs
         for drone, ugv in zip(self.drones, self.ugvs):
-            ugv.carrier_drone = drone
             drone.carried_ugv = ugv
-            filtered = UsdPhysics.FilteredPairsAPI.Apply(
-                self.stage.GetPrimAtPath(drone.prim_path)
-            )
-            filtered.CreateFilteredPairsRel().AddTarget(ugv.prim_path)
 
         # Reset world
         self.world.reset()
@@ -172,6 +167,10 @@ class CombinedSwarmManager:
         # Initialize UGVs after reset
         for ugv, (pos, ori) in zip(self.ugvs, self.ugv_init_configs):
             ugv.initialize_after_reset(pos, ori)
+
+        # Create visual carry attachments AFTER reset so scene graph is stable
+        for drone, ugv in zip(self.drones, self.ugvs):
+            ugv.setup_carry_visual(drone)
 
         self.timeline = omni.timeline.get_timeline_interface()
         self.stage_units = get_stage_units()
@@ -191,15 +190,14 @@ class CombinedSwarmManager:
             for drone in self.drones:
                 drone.update(dt, self.stage_units)
 
-            # Step world (physics runs here)
+            # Step world (physics + render)
             self.world.step(render=True)
 
-            # Update ALL UGVs AFTER physics:
-            # - Carried: teleport to drone position + zero velocities
-            # - Ground: apply wheel drive commands
+            # Update ground UGVs after physics (wheel drive)
             if self.world.is_playing():
                 for ugv in self.ugvs:
-                    ugv.update()
+                    if not ugv.attached:
+                        ugv.update()
 
             # Publish poses/odometry
             for drone in self.drones:

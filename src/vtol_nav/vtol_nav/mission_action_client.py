@@ -264,6 +264,7 @@ class MissionActionClient(Node):
             return
 
         # === DROP UGVs ===
+        time.sleep(1.0)
         self._send_drop_commands()
         self.get_logger().info('Waiting 4 seconds for UGVs to settle on ground...')
         time.sleep(4.0)
