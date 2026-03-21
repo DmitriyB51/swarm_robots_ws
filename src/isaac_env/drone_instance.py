@@ -40,6 +40,11 @@ class DroneInstance:
         self.cmd_vel = np.zeros(3)
         self.cmd_ang = np.zeros(3)
 
+        # X/Y-axis velocity dynamics (lighter lag than Z)
+        self.actual_vxy = np.zeros(2)  # current actual horizontal velocity (m/s)
+        self.tau_xy = 0.35             # horizontal lag time constant (seconds)
+        self.max_xy_accel = 2.0        # max horizontal acceleration (m/s^2)
+
         # Z-axis first-order velocity dynamics (from real flight data)
         self.actual_vz = 0.0           # current actual vertical velocity (m/s)
         self.tau_z = 1.2               # first-order lag time constant (seconds)
@@ -122,9 +127,14 @@ class DroneInstance:
 
     def update(self, dt, stage_units):
         """Update drone position and propeller animation."""
-        # X/Y: pure kinematic (instant velocity application)
-        self.position[0] += self.cmd_vel[0] * dt
-        self.position[1] += self.cmd_vel[1] * dt
+        # X/Y: first-order velocity lag (lighter than Z)
+        for i in range(2):
+            vxy_error = self.cmd_vel[i] - self.actual_vxy[i]
+            vxy_dot = vxy_error / self.tau_xy
+            vxy_dot = max(-self.max_xy_accel, min(self.max_xy_accel, vxy_dot))
+            self.actual_vxy[i] += vxy_dot * dt
+        self.position[0] += self.actual_vxy[0] * dt
+        self.position[1] += self.actual_vxy[1] * dt
 
         # Z: first-order velocity lag with acceleration and velocity limits
         vz_error = self.cmd_vel[2] - self.actual_vz
