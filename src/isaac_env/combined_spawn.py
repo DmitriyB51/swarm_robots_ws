@@ -9,7 +9,7 @@ import omni
 
 import rclpy
 
-from pxr import UsdGeom, UsdLux
+from pxr import UsdGeom, UsdLux, UsdShade, Sdf, Gf
 
 from isaacsim.core.api import World
 from isaacsim.core.utils.stage import add_reference_to_stage, get_stage_units
@@ -66,6 +66,20 @@ class CombinedSwarmManager:
         # Add dome light
         dome_light = UsdLux.DomeLight.Define(self.stage, "/World/DomeLight")
         dome_light.CreateIntensityAttr(500)
+
+        # Red dot marker at the target/goal point on the floor
+        target_x, target_y = -12.0, 12.0
+        sphere = UsdGeom.Sphere.Define(self.stage, "/World/TargetMarker")
+        sphere.GetRadiusAttr().Set(0.3)
+        sphere.AddTranslateOp().Set(Gf.Vec3d(target_x, target_y, 0.15))
+        # Red emissive material so it's visible
+        mat = UsdShade.Material.Define(self.stage, "/World/TargetMarker/RedMaterial")
+        shader = UsdShade.Shader.Define(self.stage, "/World/TargetMarker/RedMaterial/Shader")
+        shader.CreateIdAttr("UsdPreviewSurface")
+        shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(1.0, 0.0, 0.0))
+        shader.CreateInput("emissiveColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(0.8, 0.0, 0.0))
+        mat.CreateSurfaceOutput().ConnectToSource(shader.ConnectableAPI(), "surface")
+        UsdShade.MaterialBindingAPI.Apply(sphere.GetPrim()).Bind(mat)
 
         # Initialize ROS
         rclpy.init()
