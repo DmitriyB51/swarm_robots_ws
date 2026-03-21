@@ -117,6 +117,11 @@ class DroneInstance:
             dtype=np.float32
         )
 
+        # Tail propeller (5th joint) — spins only during horizontal movement
+        self.has_tail_prop = self.num_dofs > 4
+        self.tail_angle = 0.0
+        self.tail_max_spin = 80.0      # max spin speed (rad/s), same as main rotors
+
         self.articulation.set_world_poses(
             positions=np.array([self.position]) / get_stage_units()
         )
@@ -175,10 +180,20 @@ class DroneInstance:
 
         joint_pos = np.zeros((1, self.num_dofs), dtype=np.float32)
         joint_pos[0, :self.num_rotors] = self.rotor_angles
-        self.articulation.set_joint_positions(joint_pos)
-
         joint_vel = np.zeros((1, self.num_dofs), dtype=np.float32)
         joint_vel[0, :self.num_rotors] = rotor_omega
+
+        # Tail propeller: spin proportional to horizontal speed
+        if self.has_tail_prop:
+            xy_speed = np.sqrt(self.actual_vxy[0]**2 + self.actual_vxy[1]**2)
+            max_xy_speed = 2.0  # PID velocity limit
+            tail_omega = self.tail_max_spin * min(xy_speed / max_xy_speed, 1.0)
+            self.tail_angle += tail_omega * dt
+            self.tail_angle = (self.tail_angle + np.pi) % (2*np.pi) - np.pi
+            joint_pos[0, 4] = self.tail_angle
+            joint_vel[0, 4] = tail_omega
+
+        self.articulation.set_joint_positions(joint_pos)
         self.articulation.set_joint_velocities(joint_vel)
 
     def publish_pose(self, ros_node):
