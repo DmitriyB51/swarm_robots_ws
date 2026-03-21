@@ -50,7 +50,7 @@ class DroneInstance:
 
         # Angular rate smoothing (simulates rotational inertia)
         self.smooth_ang = np.zeros(3)
-        self.tau_ang = 0.1             # angular rate filter time constant (seconds)
+        self.tau_ang = 0.2             # angular rate filter time constant (seconds)
 
         self.carried_ugv = None  # Reference to carried UGV, set by combined_spawn
 
