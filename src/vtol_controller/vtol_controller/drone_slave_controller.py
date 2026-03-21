@@ -147,7 +147,7 @@ class DroneSlaveController(Node):
         vz = self.pid_z.compute(ez, dt)
 
         # Prevent going underground
-        min_z = 0.15
+        min_z = 0.25
         current_z = self.current_pose.pose.position.z
         if current_z < min_z and vz < 0.0:
             vz = 0.0

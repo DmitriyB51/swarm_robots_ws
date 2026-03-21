@@ -51,7 +51,7 @@ class DroneInstance:
         self.max_climb_rate = 3.3      # max upward velocity (m/s)
         self.max_descent_rate = 2.6    # max downward velocity (m/s, stored positive)
         self.max_z_accel = 0.85        # max vertical acceleration (m/s^2)
-        self.ground_z = 0.15           # minimum altitude (meters)
+        self.ground_z = 0.25           # minimum altitude (meters)
 
         # Angular rate smoothing (simulates rotational inertia)
         self.smooth_ang = np.zeros(3)
