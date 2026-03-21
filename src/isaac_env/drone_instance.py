@@ -40,6 +40,18 @@ class DroneInstance:
         self.cmd_vel = np.zeros(3)
         self.cmd_ang = np.zeros(3)
 
+        # Z-axis first-order velocity dynamics (from real flight data)
+        self.actual_vz = 0.0           # current actual vertical velocity (m/s)
+        self.tau_z = 1.2               # first-order lag time constant (seconds)
+        self.max_climb_rate = 3.3      # max upward velocity (m/s)
+        self.max_descent_rate = 2.6    # max downward velocity (m/s, stored positive)
+        self.max_z_accel = 0.85        # max vertical acceleration (m/s^2)
+        self.ground_z = 0.15           # minimum altitude (meters)
+
+        # Angular rate smoothing (simulates rotational inertia)
+        self.smooth_ang = np.zeros(3)
+        self.tau_ang = 0.1             # angular rate filter time constant (seconds)
+
         self.carried_ugv = None  # Reference to carried UGV, set by combined_spawn
 
         # Spawn USD
@@ -110,14 +122,32 @@ class DroneInstance:
 
     def update(self, dt, stage_units):
         """Update drone position and propeller animation."""
-        # Update pose
-        self.position += self.cmd_vel * dt
-        # Prevent going below ground
-        if self.position[2] < 0.15:
-            self.position[2] = 0.15
-        self.roll += self.cmd_ang[0] * dt
-        self.pitch += self.cmd_ang[1] * dt
-        self.yaw += self.cmd_ang[2] * dt
+        # X/Y: pure kinematic (instant velocity application)
+        self.position[0] += self.cmd_vel[0] * dt
+        self.position[1] += self.cmd_vel[1] * dt
+
+        # Z: first-order velocity lag with acceleration and velocity limits
+        vz_error = self.cmd_vel[2] - self.actual_vz
+        vz_dot = vz_error / self.tau_z
+        vz_dot = max(-self.max_z_accel, min(self.max_z_accel, vz_dot))
+        self.actual_vz += vz_dot * dt
+        self.actual_vz = max(-self.max_descent_rate, min(self.max_climb_rate, self.actual_vz))
+
+        # Ground collision: stop descending at ground level
+        if self.position[2] <= self.ground_z and self.actual_vz < 0.0:
+            self.actual_vz = 0.0
+
+        self.position[2] += self.actual_vz * dt
+
+        if self.position[2] < self.ground_z:
+            self.position[2] = self.ground_z
+            self.actual_vz = 0.0
+        # Smooth angular rates (low-pass filter to reduce oscillation/jitter)
+        alpha_ang = min(dt / self.tau_ang, 1.0)
+        self.smooth_ang += (self.cmd_ang - self.smooth_ang) * alpha_ang
+        self.roll += self.smooth_ang[0] * dt
+        self.pitch += self.smooth_ang[1] * dt
+        self.yaw += self.smooth_ang[2] * dt
 
         qw, qx, qy, qz = euler_to_quat(self.roll, self.pitch, self.yaw + self.yaw_offset)
         orientation = np.array([[qw, qx, qy, qz]], dtype=np.float32)
