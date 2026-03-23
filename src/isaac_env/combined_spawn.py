@@ -174,6 +174,13 @@ class CombinedSwarmManager:
         # Reset world
         self.world.reset()
 
+        from scene.materials import apply_all_materials
+        from scene.environment import populate_environment
+        from scene.landing_pads import create_landing_pads
+        apply_all_materials(self.stage)
+        populate_environment(self.stage)
+        create_landing_pads(self.stage)
+
         # Initialize drones after reset
         for drone in self.drones:
             drone.initialize_after_reset()
