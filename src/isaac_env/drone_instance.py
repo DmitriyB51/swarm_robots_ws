@@ -47,7 +47,7 @@ class DroneInstance:
 
         # Z-axis first-order velocity dynamics (from real flight data)
         self.actual_vz = 0.0           # current actual vertical velocity (m/s)
-        self.tau_z = 1.2               # first-order lag time constant (seconds)
+        self.tau_z = 0.6               # first-order lag time constant (seconds)
         self.max_climb_rate = 3.3      # max upward velocity (m/s)
         self.max_descent_rate = 2.6    # max downward velocity (m/s, stored positive)
         self.max_z_accel = 0.85        # max vertical acceleration (m/s^2)
