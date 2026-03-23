@@ -12,10 +12,10 @@ class UGVController(Node):
         super().__init__('ugv_controller')
 
         # Parameters
-        self.declare_parameter("max_linear_speed", 0.3)
-        self.declare_parameter("max_angular_speed", 2.0)
-        self.declare_parameter("heading_gain", 2.0)
-        self.declare_parameter("cross_track_gain", 3.0)
+        self.declare_parameter("max_linear_speed", 0.7)
+        self.declare_parameter("max_angular_speed", 3.0)
+        self.declare_parameter("heading_gain", 2.5)
+        self.declare_parameter("cross_track_gain", 4.0)
         self.declare_parameter("goal_tolerance", 0.5)
         self.declare_parameter("waypoint_tolerance", 0.15)
 

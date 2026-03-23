@@ -17,7 +17,7 @@ class AStarPlanner(Node):
         self.start_world = None
         self.goal_world = None
 
-        self.obstacle_inflation_radius = 3  # cells
+        self.obstacle_inflation_radius = 8  # cells (0.4m at 0.05m/cell)
         self.occ_threshold = 50
 
         self.map_sub = self.create_subscription(
