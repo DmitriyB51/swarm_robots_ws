@@ -3,12 +3,12 @@ import carb
 
 # Landing pad positions
 PAD_POSITIONS = [
-    (-31.0, 30.0, 0.0),  # pad for vtol_1
-    (-34.0, 35.0, 0.0),  # pad for vtol_2
-    (-34.0, 25.0, 0.0),  # pad for vtol_3
+    (-31.0, 30.0, 0.0),  # pad for vtol_1 (center, front)
+    (-35.0, 37.0, 0.0),  # pad for vtol_2 (left, back)
+    (-35.0, 23.0, 0.0),  # pad for vtol_3 (right, back)
 ]
 
-PAD_SIZE   = 3.0   # meters, slightly larger than drone footprint
+PAD_SIZE   = 5.0   # meters, larger than drone footprint
 PAD_HEIGHT = 0.05  # thin slab
 
 

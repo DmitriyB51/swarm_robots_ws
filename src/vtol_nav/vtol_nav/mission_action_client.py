@@ -129,7 +129,7 @@ class MissionActionClient(Node):
 
         # Phase 1a: Initial formation point (several meters away for proper formation)
         self.formation_waypoint_1 = make_pose_quat(
-            -25.0, 30.0, 9.0,
+            -12.0, 32.0, 5.0,
             0.0, 0.0, 0.0, 1.0
         )
 

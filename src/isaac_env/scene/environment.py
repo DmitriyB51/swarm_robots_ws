@@ -18,10 +18,10 @@ MAP_MIN_Y = -40.0
 MAP_MAX_Y =  40.0
 
 # Number of trees to spawn
-NUM_TREES = 10
+NUM_TREES = 3
 
 # Minimum distance between trees
-MIN_DIST  = 20.0
+MIN_DIST  = 25.0
 
 ENV_ROOT = "/World/SceneObjects"
 
@@ -101,7 +101,7 @@ def _add_usd_tree(stage, position, name, usd_path):
     xform_api = UsdGeom.XformCommonAPI(xform)
     xform_api.SetTranslate(Gf.Vec3d(position[0], position[1], 0.0))
     xform_api.SetRotate(Gf.Vec3f(90.0, 0.0, 0.0))
-    xform_api.SetScale(Gf.Vec3f(0.3, 0.3, 0.3))
+    xform_api.SetScale(Gf.Vec3f(0.1, 0.1, 0.1))
 
     stage.GetPrimAtPath(prim_path).GetReferences().AddReference(usd_path)
     return prim_path
@@ -111,18 +111,19 @@ def _add_procedural_tree(stage, position, name):
     xform = UsdGeom.Xform.Define(stage, root)
     xform.AddTranslateOp().Set(Gf.Vec3d(*position))
 
-    # Random height and crown size for variety
-    height = random.uniform(2.5, 4.5)
-    radius = random.uniform(1.2, 2.2)
+    # Realistic tree ~5m tall with variation
+    trunk_height = random.uniform(2.5, 3.5)
+    crown_radius = random.uniform(1.8, 2.5)
+    total_height = trunk_height + crown_radius * 1.4  # ~4.5-6m total
 
     trunk = UsdGeom.Cylinder.Define(stage, f"{root}/Trunk")
-    trunk.GetHeightAttr().Set(height)
-    trunk.GetRadiusAttr().Set(0.15 + height * 0.03)
-    UsdGeom.XformCommonAPI(trunk).SetTranslate((0, 0, height / 2))
+    trunk.GetHeightAttr().Set(trunk_height)
+    trunk.GetRadiusAttr().Set(0.12)
+    UsdGeom.XformCommonAPI(trunk).SetTranslate((0, 0, trunk_height / 2))
 
     crown = UsdGeom.Sphere.Define(stage, f"{root}/Crown")
-    crown.GetRadiusAttr().Set(radius)
-    UsdGeom.XformCommonAPI(crown).SetTranslate((0, 0, height + radius * 0.7))
+    crown.GetRadiusAttr().Set(crown_radius)
+    UsdGeom.XformCommonAPI(crown).SetTranslate((0, 0, trunk_height + crown_radius * 0.7))
 
     trunk_mat = _make_color_mat(
         stage, f"{root}/TrunkMat", (0.35, 0.20, 0.05), 0.9
@@ -136,7 +137,7 @@ def _add_procedural_tree(stage, position, name):
 
 
 def populate_environment(stage):
-    """Spawns trees randomly outside the maze boundaries."""
+    """Spawns 4 trees at fixed positions near maze corners."""
     UsdGeom.Xform.Define(stage, ENV_ROOT)
 
     tree_usd = _find_tree_file()
@@ -146,7 +147,13 @@ def populate_environment(stage):
     else:
         carb.log_warn("[environment] No USD tree found, using procedural trees.")
 
-    positions = _generate_tree_positions(seed=42)
+    # 2 trees near maze entrances (beside, not blocking), 2 along walls
+    positions = [
+        (-21.5,  -5.0, 0.0),   # near left entrance, offset to the side
+        ( 5.0,  -22.0, 0.0),   # near bottom entrance, offset to the side
+        ( 22.0,  14.0, 0.0),   # along right wall
+        (-14.0,  23.0, 0.0),   # along top wall
+    ]
 
     for i, pos in enumerate(positions):
         name = f"Tree_{i:02d}"
@@ -155,7 +162,4 @@ def populate_environment(stage):
         else:
             _add_procedural_tree(stage, pos, name)
 
-    carb.log_info(
-        f"[environment] Trees placed: {len(positions)} "
-        f"(maze zone excluded)"
-    )
+    carb.log_info(f"[environment] Trees placed: {len(positions)} (fixed corners)")

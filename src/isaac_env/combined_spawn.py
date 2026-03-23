@@ -90,11 +90,11 @@ class CombinedSwarmManager:
             "~/swarm_robots_ws/src/robots/drone/drone_final.usd"
         )
 
-        # Drone configs: (name, [x, y, z])
+        # Drone configs: (name, [x, y, z]) — on landing pads
         drone_configs = [
-            ("vtol_1", [-30.0, 30.0, 9.0]),
-            ("vtol_2", [-33.0, 35.0, 7.0]),
-            ("vtol_3", [-33.0, 25.0, 5.0]),
+            ("vtol_1", [-30.0, 30.0, 0.25]),
+            ("vtol_2", [-34.0, 37.0, 0.25]),
+            ("vtol_3", [-34.0, 23.0, 0.25]),
         ]
 
         # Carry offset: UGV position relative to drone (from reference USD)

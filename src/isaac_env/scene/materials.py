@@ -16,7 +16,7 @@ def _create_omnipbr(stage, mat_path, albedo=None, color=None,
         shader.CreateInput("texture_scale", Sdf.ValueTypeNames.Float2).Set(
             Gf.Vec2f(tiling, tiling)
         )
-    elif color:
+    if color:
         shader.CreateInput("diffuse_color_constant", Sdf.ValueTypeNames.Color3f).Set(
             Gf.Vec3f(*color)
         )
@@ -67,7 +67,7 @@ def apply_all_materials(stage):
     ground_mat = _create_omnipbr(
         stage, "/World/Looks/GroundMat",
         albedo=ground_tex,
-        color=(0.35, 0.30, 0.20),
+        color=(0.4, 0.4, 0.4),
         roughness=0.9, tiling=30.0
     )
 
@@ -101,10 +101,9 @@ def apply_all_materials(stage):
             sh.CreateInput(
                 "texture_scale", Sdf.ValueTypeNames.Float2
             ).Set(Gf.Vec2f(2.0, 2.0))
-        else:
-            sh.CreateInput(
-                "diffuse_color_constant", Sdf.ValueTypeNames.Color3f
-            ).Set(Gf.Vec3f(0.55, 0.52, 0.48))
+        sh.CreateInput(
+            "diffuse_color_constant", Sdf.ValueTypeNames.Color3f
+        ).Set(Gf.Vec3f(0.25, 0.24, 0.22))
         sh.CreateInput(
             "reflection_roughness_constant", Sdf.ValueTypeNames.Float
         ).Set(0.75)
