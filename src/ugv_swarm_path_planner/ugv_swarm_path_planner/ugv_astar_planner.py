@@ -170,19 +170,35 @@ class AStarPlanner(Node):
         if len(path) < 3:
             return path
 
-        smooth = [path[0]]
+        # Step 1: remove collinear points (keep turn points)
+        key_points = [path[0]]
         for i in range(1, len(path) - 1):
-            prev = smooth[-1]
+            prev = key_points[-1]
             curr = path[i]
             nxt = path[i + 1]
 
             if (prev[0] - curr[0], prev[1] - curr[1]) == \
                (curr[0] - nxt[0], curr[1] - nxt[1]):
                 continue
-            smooth.append(curr)
+            key_points.append(curr)
+        key_points.append(path[-1])
 
-        smooth.append(path[-1])
-        return smooth
+        # Step 2: insert intermediate waypoints on long segments
+        # so the controller has dense guidance (max ~10 cells apart ≈ 0.5m)
+        max_gap = 10
+        dense = [key_points[0]]
+        for i in range(1, len(key_points)):
+            ax, ay = dense[-1]
+            bx, by = key_points[i]
+            dx, dy = bx - ax, by - ay
+            seg_len = math.hypot(dx, dy)
+            steps = max(1, int(seg_len / max_gap))
+            for s in range(1, steps):
+                t = s / steps
+                dense.append((int(ax + t * dx), int(ay + t * dy)))
+            dense.append(key_points[i])
+
+        return dense
 
     # Conversions
     def world_to_grid(self, pos):
