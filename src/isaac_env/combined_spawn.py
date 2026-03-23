@@ -68,7 +68,7 @@ class CombinedSwarmManager:
         dome_light.CreateIntensityAttr(500)
 
         # Red dot marker at the target/goal point on the floor
-        target_x, target_y = -12.0, 12.0
+        target_x, target_y = -14.0, 14.0
         sphere = UsdGeom.Sphere.Define(self.stage, "/World/TargetMarker")
         sphere.GetRadiusAttr().Set(0.3)
         sphere.AddTranslateOp().Set(Gf.Vec3d(target_x, target_y, 0.15))

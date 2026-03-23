@@ -81,8 +81,8 @@ class MissionActionClient(Node):
         )
 
         # Fixed target point (end of bottom strip to maximize search time)
-        self.fixed_target_x = -12.0
-        self.fixed_target_y = 12.0
+        self.fixed_target_x = -14.0
+        self.fixed_target_y = 14.0
 
         # Spiral search state
         self.map_data = None

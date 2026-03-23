@@ -46,8 +46,8 @@ class SpiralSearchNode(Node):
         )
 
         # Fixed target point
-        self.fixed_target_x = -12.0
-        self.fixed_target_y = 12.0
+        self.fixed_target_x = -14.0
+        self.fixed_target_y = 14.0
 
         # State
         self.map_data = None
