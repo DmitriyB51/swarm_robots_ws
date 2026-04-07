@@ -17,6 +17,33 @@ What it does (mirrors the GUI clicks 1:1):
 """
 
 # 1. SimulationApp must be created BEFORE any omni.* import.
+#
+# CRITICAL: inject the schema plugin paths into PXR_PLUGINPATH_NAME
+# BEFORE importing isaacsim. USD's SchemaRegistry is constructed very
+# early during SimulationApp boot (as soon as any USD code runs). At
+# construction it scans `Plug.Registry().GetAllPlugins()` and fills its
+# concrete/applied-API maps from the `generatedSchema.usda` files of the
+# plugins it finds at that moment. Any plugin added AFTER construction
+# (e.g. via Kit's `enable_extension` later in this script) never
+# populates those maps — even if we later call `Plug.Plugin.Load()` —
+# because `UsdSchemaRegistry::_FindAndAddPluginSchema()` runs exactly
+# once per process lifetime. Setting `PXR_PLUGINPATH_NAME` makes the
+# plugin manager discover these schema directories during its initial
+# scan, so the schemas are classified correctly from the start.
+import os as _os
+_SCHEMA_PLUGIN_PATHS = [
+    "/home/dmitriyb51/isaacsim/extscache/omni.anim.navigation.schema-106.4.0+106.4.0.lx64.r.cp310/plugins/NavSchema/resources",
+    "/home/dmitriyb51/isaacsim/extscache/omni.anim.graph.schema-106.5.0+106.5.0.lx64.r.cp310/plugins/AnimGraphSchema/resources",
+    "/home/dmitriyb51/isaacsim/extscache/omni.anim.behavior.schema-106.5.0+106.5.0.lx64.r.cp310/plugins/BehaviorSchema/resources",
+    "/home/dmitriyb51/isaacsim/extscache/omni.usd.schema.anim-0.0.0+d02c707b.lx64.r.cp310/plugins/OmniSkelSchema/resources",
+    "/home/dmitriyb51/isaacsim/extscache/omni.usd.schema.anim-0.0.0+d02c707b.lx64.r.cp310/plugins/AnimationSchema/resources",
+    "/home/dmitriyb51/isaacsim/extscache/omni.usd.schema.anim-0.0.0+d02c707b.lx64.r.cp310/plugins/RetargetingSchema/resources",
+]
+_existing = _os.environ.get("PXR_PLUGINPATH_NAME", "")
+_os.environ["PXR_PLUGINPATH_NAME"] = ":".join(
+    [p for p in _SCHEMA_PLUGIN_PATHS + [_existing] if p]
+)
+
 from isaacsim import SimulationApp
 simulation_app = SimulationApp({"renderer": "RaytracedLighting", "headless": False})
 
@@ -85,15 +112,24 @@ simulation_app.update()
 # the omni.anim.people-related extensions would have applied themselves
 # if Kit's lazy loader had triggered them.
 from pxr import Plug as _Plug
-_LOADED_SCHEMAS = []
 for _p in _Plug.Registry().GetAllPlugins():
     if _p.name.endswith("Schema") and not _p.isLoaded:
         try:
             _p.Load()
-            _LOADED_SCHEMAS.append(_p.name)
-        except Exception as _e:
-            print(f"[anim_people_test] failed to load schema plugin {_p.name}: {_e}")
-print(f"[anim_people_test] force-loaded schema plugins: {_LOADED_SCHEMAS}")
+        except Exception:
+            pass
+
+# IMPORTANT: warm the USD schema registry by querying with USD ALIAS names
+# (not TfType names). This triggers `UsdSchemaRegistry` to populate its
+# internal `_concreteTypeToPrimDefinition` /
+# `_singleApplyAPISchemaTypeToPrimDefinition` maps from the plugins we
+# just Load()ed. Without this, Tf.Type-based queries still return False
+# and `ApplyAnimationGraphAPICommand` fails.
+from pxr import Usd as _Usd
+_reg = _Usd.SchemaRegistry()
+for _alias in ("AnimationGraphAPI", "NavMeshVolume", "NavMeshAreaAPI"):
+    _reg.IsAppliedAPISchema(_alias)
+    _reg.IsConcrete(_alias)
 
 # 3. Late imports — only legal after SimulationApp + the extensions above.
 import time
@@ -116,46 +152,6 @@ from isaacsim.storage.native import get_assets_root_path
 from omni.anim.people.scripts.navigation_manager import NavigationManager
 from omni.anim.people.scripts.utils import Utils
 from isaacsim.replicator.metropolis.utils.carb_util import CarbUtil
-
-# ── Schema sanity check ──────────────────────────────────────────────────────
-# Verify that after Plug.Load + late imports, USD's schema registry
-# correctly classifies the types we depend on. Write the results to a
-# log file so we can inspect them even if Kit swallows stdout.
-def _schema_sanity_probe():
-    import AnimGraphSchema as _AGS
-    import NavSchema as _NS
-    from pxr import Tf as _Tf, Usd as _Usd
-    _reg = _Usd.SchemaRegistry()
-    with open("/tmp/anim_people_schema_state.txt", "w") as _f:
-        def _w(msg):
-            _f.write(str(msg) + "\n")
-        _w("=== schema state right before main() ===")
-        for _tname in (
-            "AnimGraphSchemaAnimationGraphAPI",
-            "NavSchemaNavMeshVolume",
-            "NavSchemaNavMeshAreaAPI",
-        ):
-            _t = _Tf.Type.FindByName(_tname)
-            _w(f"  {_tname}: Tf.Type={_t}  "
-               f"IsAppliedAPISchema={_reg.IsAppliedAPISchema(_t)}  "
-               f"IsConcrete={_reg.IsConcrete(_t)}")
-        # Direct HasAPI test on a throwaway prim
-        _ctx = omni.usd.get_context()
-        _ctx.new_stage()
-        _stage = _ctx.get_stage()
-        _p = _stage.DefinePrim("/SanityProbe", "Xform")
-        try:
-            _has = _p.HasAPI(_AGS.AnimationGraphAPI)
-            _w(f"  prim.HasAPI(AnimGraphSchema.AnimationGraphAPI) -> {_has}")
-        except Exception as _e:
-            _w(f"  prim.HasAPI raised: {type(_e).__name__}: {_e}")
-        try:
-            _vol = _NS.NavMeshVolume.Define(_stage, Sdf.Path("/SanityProbeNav"))
-            _ext_tn = UsdGeom.Boundable(_vol.GetPrim()).GetExtentAttr().GetTypeName()
-            _w(f"  NavMeshVolume.extent typeName: {_ext_tn}")
-        except Exception as _e:
-            _w(f"  NavMeshVolume.Define raised: {type(_e).__name__}: {_e}")
-_schema_sanity_probe()
 
 
 # ── Configuration ──────────────────────────────────────────────────────────
