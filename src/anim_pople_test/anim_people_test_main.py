@@ -88,7 +88,11 @@ from isaacsim.replicator.metropolis.utils.carb_util import CarbUtil
 
 
 # Configuration
-GOAL_POSITION = (6.29, 0.0, -1.6)  
+WAYPOINTS = [
+    (2.0,  1.5, -1.6),
+    (4.0, -1.5, -1.6),
+    (6.29, 0.0, -1.6),
+]
 BIPED_SETUP_PRIM_PATH = "/World/Characters/Biped_Setup"
 CHARACTER_PRIM_PATH = "/World/Characters/F_Business_02"
 ANIM_GRAPH_PRIM_PATH = "/World/Characters/Biped_Setup/CharacterAnimation/AnimationGraph"
@@ -285,8 +289,11 @@ def main():
         dynamic_avoidance_enabled=False,
     )
 
-    gx, gy, gz = GOAL_POSITION
-    nav_mgr.generate_goto_path([str(gx), str(gy), str(gz), "_"])
+    coords = []
+    for wx, wy, wz in WAYPOINTS:
+        coords.extend([str(wx), str(wy), str(wz)])
+    coords.append("_")  # "_" = no final rotation target
+    nav_mgr.generate_goto_path(coords)
     character.set_variable("Action", "Walk")
 
     
