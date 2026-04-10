@@ -1,12 +1,13 @@
 # Drone Instance class - import after SimulationApp is created
 import numpy as np
 
-from pxr import UsdPhysics, Usd
+from pxr import UsdPhysics, Usd, UsdGeom, UsdShade, Sdf, Gf
 
 from isaacsim.core.prims import Articulation
 from isaacsim.core.utils.stage import add_reference_to_stage, get_stage_units
 
 from geometry_msgs.msg import PoseStamped, Twist
+from std_msgs.msg import Bool
 
 
 def euler_to_quat(roll, pitch, yaw):
@@ -20,6 +21,10 @@ def euler_to_quat(roll, pitch, yaw):
     qy = cr * sp * cy + sr * cp * sy
     qz = cr * cp * sy - sr * sp * cy
     return qw, qx, qy, qz
+
+
+FOV_RADIUS = 3.0   # meters — matches detection_radius in mission scripts
+FOV_NOSE_OFFSET = 0.3  # meters — shift apex backward toward drone body
 
 
 class DroneInstance:
@@ -58,6 +63,8 @@ class DroneInstance:
         self.tau_ang = 0.2             # angular rate filter time constant (seconds)
 
         self.carried_ugv = None  # Reference to carried UGV, set by combined_spawn
+        self._fov_curves = None  # BasisCurves prim for FOV visualization
+        self._fov_visible = False
 
         # Spawn USD
         self.prim_path = f"/World/{name}"
@@ -97,6 +104,12 @@ class DroneInstance:
             10
         )
 
+        ros_node.create_subscription(
+            Bool, '/show_fov',
+            self._show_fov_callback,
+            10
+        )
+
         self.num_dofs = None
         self.num_rotors = None
         self.base_spin_vel = None
@@ -125,6 +138,86 @@ class DroneInstance:
         self.articulation.set_world_poses(
             positions=np.array([self.position]) / get_stage_units()
         )
+
+    def setup_fov_lines(self):
+        """Create BasisCurves pyramid showing the drone's detection cone."""
+        R = FOV_RADIUS
+        cx, cy, cz = self.position
+
+        # 4 ground corners
+        corners = [
+            (cx + R, cy + R, 0.0),
+            (cx + R, cy - R, 0.0),
+            (cx - R, cy - R, 0.0),
+            (cx - R, cy + R, 0.0),
+        ]
+
+        # 8 line segments: 4 center→corner + 4 corner→corner
+        points = []
+        for corner in corners:
+            points.append(Gf.Vec3f(cx, cy, cz))
+            points.append(Gf.Vec3f(*corner))
+        for i in range(4):
+            points.append(Gf.Vec3f(*corners[i]))
+            points.append(Gf.Vec3f(*corners[(i + 1) % 4]))
+
+        fov_path = f"/World/FOV_{self.name}"
+        curves = UsdGeom.BasisCurves.Define(self.stage, fov_path)
+        curves.GetTypeAttr().Set("linear")
+        curves.GetWrapAttr().Set("nonperiodic")
+        curves.GetCurveVertexCountsAttr().Set([2] * 8)
+        curves.GetPointsAttr().Set(points)
+        curves.GetWidthsAttr().Set([0.04] * 16)
+
+        # Cyan emissive material
+        mat_path = f"/World/Looks/FOV_{self.name}_Mat"
+        mat = UsdShade.Material.Define(self.stage, mat_path)
+        sh = UsdShade.Shader.Define(self.stage, f"{mat_path}/Shader")
+        sh.SetSourceAsset("OmniPBR.mdl", "mdl")
+        sh.SetSourceAssetSubIdentifier("OmniPBR", "mdl")
+        sh.GetImplementationSourceAttr().Set(UsdShade.Tokens.sourceAsset)
+        sh.CreateInput("diffuse_color_constant", Sdf.ValueTypeNames.Color3f).Set(
+            Gf.Vec3f(0.0, 0.9, 1.0)
+        )
+        sh.CreateInput("reflection_roughness_constant", Sdf.ValueTypeNames.Float).Set(1.0)
+        sh.CreateInput("metallic_constant", Sdf.ValueTypeNames.Float).Set(0.0)
+        mat.CreateSurfaceOutput().ConnectToSource(sh.ConnectableAPI(), "surface")
+        UsdShade.MaterialBindingAPI(curves.GetPrim()).Bind(mat)
+
+        self._fov_curves = curves
+        UsdGeom.Imageable(curves.GetPrim()).MakeInvisible()
+
+    def _show_fov_callback(self, msg):
+        if msg.data and self._fov_curves is not None and not self._fov_visible:
+            UsdGeom.Imageable(self._fov_curves.GetPrim()).MakeVisible()
+            self._fov_visible = True
+
+    def _update_fov_points(self):
+        """Recompute FOV pyramid points from current drone position."""
+        if self._fov_curves is None:
+            return
+        R = FOV_RADIUS
+        # Shift apex backward along heading so it sits at the drone nose
+        cx = float(self.position[0]) - FOV_NOSE_OFFSET * np.cos(self.yaw)
+        cy = float(self.position[1]) - FOV_NOSE_OFFSET * np.sin(self.yaw)
+        cz = float(self.position[2])
+
+        corners = [
+            (cx + R, cy + R, 0.0),
+            (cx + R, cy - R, 0.0),
+            (cx - R, cy - R, 0.0),
+            (cx - R, cy + R, 0.0),
+        ]
+
+        points = []
+        for corner in corners:
+            points.append(Gf.Vec3f(cx, cy, cz))
+            points.append(Gf.Vec3f(*corner))
+        for i in range(4):
+            points.append(Gf.Vec3f(*corners[i]))
+            points.append(Gf.Vec3f(*corners[(i + 1) % 4]))
+
+        self._fov_curves.GetPointsAttr().Set(points)
 
     def cmd_callback(self, msg):
         self.cmd_vel[:] = [msg.linear.x, msg.linear.y, msg.linear.z]
@@ -195,6 +288,8 @@ class DroneInstance:
 
         self.articulation.set_joint_positions(joint_pos)
         self.articulation.set_joint_velocities(joint_vel)
+
+        self._update_fov_points()
 
     def publish_pose(self, ros_node):
         """Publish drone pose using logical orientation (without yaw_offset).

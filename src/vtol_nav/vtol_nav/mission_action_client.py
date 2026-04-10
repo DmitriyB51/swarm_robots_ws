@@ -135,6 +135,9 @@ class MissionActionClient(Node):
             Bool, '/person_1/stop_walk', 10
         )
 
+        # FOV trace activation
+        self.show_fov_pub = self.create_publisher(Bool, '/show_fov', 10)
+
         # Subscribe to person pose (dynamic search target)
         self.person_pose = None
         self.create_subscription(
@@ -296,6 +299,10 @@ class MissionActionClient(Node):
             self.get_logger().error('Phase 4 failed, aborting mission')
             self._mission_complete = True
             return
+
+        # Activate FOV traces on all drones
+        self.show_fov_pub.publish(Bool(data=True))
+        self.get_logger().info('FOV traces activated')
 
         # Delay before spiral search
         self.get_logger().info('Waiting 3 seconds before proceeding to Phase 5...')

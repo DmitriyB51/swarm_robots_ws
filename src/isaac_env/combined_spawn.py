@@ -233,7 +233,10 @@ class CombinedSwarmManager:
                 (-7.6, -3.5, 0.0),
                 (-5.7, 1.6, 0.0),
                 (-7.1, 10.0, 0.0),
-                (-13.5, 10.0, 0.0),
+                (-12.5, 15.0, 0.0),
+                (-14.2, 10.7, 0.0),
+                (-9.4, 1.4, 0.0),
+                (-2.1, -7.0, 0.0),
             ]),
         ]
 
@@ -269,6 +272,10 @@ class CombinedSwarmManager:
         # Initialize drones after reset
         for drone in self.drones:
             drone.initialize_after_reset()
+
+        # Create FOV cone lines for each drone
+        for drone in self.drones:
+            drone.setup_fov_lines()
 
         # Initialize UGVs after reset
         for ugv, (pos, ori) in zip(self.ugvs, self.ugv_init_configs):

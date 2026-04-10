@@ -254,20 +254,20 @@ class PersonInstance:
         carb.log_warn(f"[person_instance] {self.name} stopped walking (found by drone)")
 
     def publish_pose(self, ros_node):
-        """Publish person's current world position."""
-        prim = self.stage.GetPrimAtPath(self.character_prim_path)
-        if not prim.IsValid():
+        """Publish person's current world position via animation graph transform."""
+        if self.character is None:
             return
-        xform = UsdGeom.Xformable(prim)
-        world_tf = xform.ComputeLocalToWorldTransform(Usd.TimeCode.Default())
-        pos = world_tf.ExtractTranslation()
+        import carb
+        pos = carb.Float3()
+        rot = carb.Float4()
+        self.character.get_world_transform(pos, rot)
 
         msg = PoseStamped()
         msg.header.frame_id = "world"
         msg.header.stamp = ros_node.get_clock().now().to_msg()
-        msg.pose.position.x = float(pos[0])
-        msg.pose.position.y = float(pos[1])
-        msg.pose.position.z = float(pos[2])
+        msg.pose.position.x = float(pos.x)
+        msg.pose.position.y = float(pos.y)
+        msg.pose.position.z = float(pos.z)
         self.pose_pub.publish(msg)
 
     def update(self, dt):
