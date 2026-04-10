@@ -127,6 +127,11 @@ class MissionActionClient(Node):
                 Bool, f'/{name}/drop', 10
             )
 
+        # Person walk trigger
+        self.person_start_pub = self.create_publisher(
+            Bool, '/person_1/start_walk', 10
+        )
+
         # Phase 1a: Initial formation point (several meters away for proper formation)
         self.formation_waypoint_1 = make_pose_quat(
             -12.0, 32.0, 5.0,
@@ -209,6 +214,9 @@ class MissionActionClient(Node):
 
         # === Phase 1a: Initial Formation Point (master-slave mode) ===
         self.get_logger().info('')
+        self.get_logger().info('Starting person walking...')
+        self.person_start_pub.publish(Bool(data=True))
+
         self.get_logger().info('=== Phase 1a: Initial Formation Point (vtol_1 leads, vtol_2/vtol_3 follow) ===')
         success = self._execute_leader_follower(
             goal_pose=self.formation_waypoint_1,
