@@ -89,9 +89,9 @@ from isaacsim.replicator.metropolis.utils.carb_util import CarbUtil
 
 # Configuration
 WAYPOINTS = [
-    (2.0,  1.5, -1.6),
-    (4.0, -1.5, -1.6),
-    (6.29, 0.0, -1.6),
+    (10.0,  10, -1.6),
+    (11.0, 11.0, -1.6),
+    (12.0, 12.0, -1.6),
 ]
 BIPED_SETUP_PRIM_PATH = "/World/Characters/Biped_Setup"
 CHARACTER_PRIM_PATH = "/World/Characters/F_Business_02"
@@ -207,6 +207,9 @@ def main():
     add_reference_to_stage(biped_usd, BIPED_SETUP_PRIM_PATH)
     add_reference_to_stage(character_usd, CHARACTER_PRIM_PATH)
 
+    # Set character initial position
+    char_prim = stage.GetPrimAtPath(CHARACTER_PRIM_PATH)
+    char_prim.GetAttribute("xformOp:translate").Set(Gf.Vec3d(9.0, 9.0, 0.0))
 
     #wait 30 frames
     pump_app(30)
