@@ -16,6 +16,7 @@ from omni.anim.people.scripts.utils import Utils
 from isaacsim.replicator.metropolis.utils.carb_util import CarbUtil
 
 from std_msgs.msg import Bool
+from geometry_msgs.msg import PoseStamped
 
 
 def _find_skel_root(stage, root_prim_path):
@@ -165,6 +166,19 @@ class PersonInstance:
             10,
         )
 
+        # ROS subscriber for stop trigger (drone found the person)
+        ros_node.create_subscription(
+            Bool,
+            f"/{name}/stop_walk",
+            self._stop_walk_callback,
+            10,
+        )
+
+        # ROS publisher for person pose (used by mission client for detection)
+        self.pose_pub = ros_node.create_publisher(
+            PoseStamped, f"/{name}/pose", 10
+        )
+
     def setup_navmesh(self):
         """Define navmesh volume and bake. Call once before world.reset()."""
         _define_navmesh_volume(
@@ -215,6 +229,10 @@ class PersonInstance:
         if msg.data:
             self.start_walking()
 
+    def _stop_walk_callback(self, msg):
+        if msg.data:
+            self.stop_walking()
+
     def start_walking(self):
         if self.character is None or self.nav_mgr is None:
             carb.log_error("[person_instance] cannot start walking — not initialized")
@@ -222,6 +240,35 @@ class PersonInstance:
         self.walking = True
         self.character.set_variable("Action", "Walk")
         carb.log_warn(f"[person_instance] {self.name} started walking")
+
+    def stop_walking(self):
+        if self.character is None:
+            return
+        self.walking = False
+        self.done = True
+        self.desired_speed = 0.0
+        self.character.set_variable("Action", "None")
+        if self.nav_mgr:
+            self.nav_mgr.set_path_points(None)
+            self.nav_mgr.clean_path_targets()
+        carb.log_warn(f"[person_instance] {self.name} stopped walking (found by drone)")
+
+    def publish_pose(self, ros_node):
+        """Publish person's current world position."""
+        prim = self.stage.GetPrimAtPath(self.character_prim_path)
+        if not prim.IsValid():
+            return
+        xform = UsdGeom.Xformable(prim)
+        world_tf = xform.ComputeLocalToWorldTransform(Usd.TimeCode.Default())
+        pos = world_tf.ExtractTranslation()
+
+        msg = PoseStamped()
+        msg.header.frame_id = "world"
+        msg.header.stamp = ros_node.get_clock().now().to_msg()
+        msg.pose.position.x = float(pos[0])
+        msg.pose.position.y = float(pos[1])
+        msg.pose.position.z = float(pos[2])
+        self.pose_pub.publish(msg)
 
     def update(self, dt):
         if not self.walking or self.done:

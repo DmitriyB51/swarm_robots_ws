@@ -125,20 +125,6 @@ class CombinedSwarmManager:
         dome_light = UsdLux.DomeLight.Define(self.stage, "/World/DomeLight")
         dome_light.CreateIntensityAttr(500)
 
-        # Red dot marker at the target/goal point on the floor
-        target_x, target_y = -14.0, 14.0
-        sphere = UsdGeom.Sphere.Define(self.stage, "/World/TargetMarker")
-        sphere.GetRadiusAttr().Set(0.3)
-        sphere.AddTranslateOp().Set(Gf.Vec3d(target_x, target_y, 0.15))
-        # Red emissive material so it's visible
-        mat = UsdShade.Material.Define(self.stage, "/World/TargetMarker/RedMaterial")
-        shader = UsdShade.Shader.Define(self.stage, "/World/TargetMarker/RedMaterial/Shader")
-        shader.CreateIdAttr("UsdPreviewSurface")
-        shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(1.0, 0.0, 0.0))
-        shader.CreateInput("emissiveColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(0.8, 0.0, 0.0))
-        mat.CreateSurfaceOutput().ConnectToSource(shader.ConnectableAPI(), "surface")
-        UsdShade.MaterialBindingAPI.Apply(sphere.GetPrim()).Bind(mat)
-
         # Initialize ROS
         rclpy.init()
         self.ros_node = rclpy.create_node("combined_swarm_controller")
@@ -329,6 +315,10 @@ class CombinedSwarmManager:
             # Update persons (animation-driven walking)
             for person in self.persons:
                 person.update(dt)
+
+            # Publish person poses
+            for person in self.persons:
+                person.publish_pose(self.ros_node)
 
             # Publish poses/odometry
             for drone in self.drones:

@@ -127,9 +127,20 @@ class MissionActionClient(Node):
                 Bool, f'/{name}/drop', 10
             )
 
-        # Person walk trigger
+        # Person walk trigger + stop
         self.person_start_pub = self.create_publisher(
             Bool, '/person_1/start_walk', 10
+        )
+        self.person_stop_pub = self.create_publisher(
+            Bool, '/person_1/stop_walk', 10
+        )
+
+        # Subscribe to person pose (dynamic search target)
+        self.person_pose = None
+        self.create_subscription(
+            PoseStamped, '/person_1/pose',
+            self._person_pose_callback,
+            10, callback_group=self.cb_group
         )
 
         # Phase 1a: Initial formation point (several meters away for proper formation)
@@ -476,6 +487,10 @@ class MissionActionClient(Node):
         """Store drone pose for spiral search."""
         self.drone_poses[drone_name] = msg
 
+    def _person_pose_callback(self, msg: PoseStamped):
+        """Store person pose for dynamic target tracking."""
+        self.person_pose = msg
+
     def _world_to_grid(self, x: float, y: float) -> tuple:
         """Convert world coordinates to grid cell indices."""
         if self.map_data is None:
@@ -611,11 +626,15 @@ class MissionActionClient(Node):
                 f'Only {len(self.drone_poses)}/{len(self.all_drone_names)} drones detected'
             )
 
-        # Set target point
-        target_x = self.fixed_target_x
-        target_y = self.fixed_target_y
-        self.target_point = (target_x, target_y)
-        self.get_logger().info(f'Target set at ({target_x:.2f}, {target_y:.2f})')
+        # Dynamic target — follows person's position
+        if self.person_pose is not None:
+            target_x = self.person_pose.pose.position.x
+            target_y = self.person_pose.pose.position.y
+            self.target_point = (target_x, target_y)
+            self.get_logger().info(f'Initial person position at ({target_x:.2f}, {target_y:.2f})')
+        else:
+            self.get_logger().warn('No person pose received yet, using (0, 0)')
+            self.target_point = (0.0, 0.0)
 
         # Compute search bounds from map
         bounds = self._compute_search_bounds()
@@ -663,6 +682,13 @@ class MissionActionClient(Node):
         while not self.target_found:
             time.sleep(0.5)
 
+            # Update target to person's current position
+            if self.person_pose is not None:
+                self.target_point = (
+                    self.person_pose.pose.position.x,
+                    self.person_pose.pose.position.y,
+                )
+
             for drone_name in self.all_drone_names:
                 wps = drone_waypoints[drone_name]
                 if len(wps) == 0:
@@ -691,6 +717,10 @@ class MissionActionClient(Node):
                     self.finder_drone = drone_name
                     self.get_logger().info(f'*** TARGET FOUND by {drone_name}! ***')
                     break
+
+        # === Target Found — stop the person walking ===
+        self.person_stop_pub.publish(Bool(data=True))
+        self.get_logger().info('Person stopped — found by drone')
 
         # === Target Found - Finder stops at target, others follow as slaves ===
         target_x, target_y = self.target_point
